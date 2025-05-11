@@ -1,0 +1,69 @@
+/* Fundo do body */
+body {
+  background-color: #ececec;
+}
+
+/* Navbar - versão mais específica */
+.navbar.navbar-light.bg-secondary {
+  background-color: #ececec !important;
+  box-shadow: none; /* Remove sombra se necessário */
+}
+
+
+.services-section {
+      padding: 60px 0;
+      background-color: #f8f9fa;
+    }
+    .service-box {
+      border-left: 4px solid #303030;
+      background: white;
+      padding: 30px;
+      margin-bottom: 30px;
+      height: 100%;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .service-box:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .service-number {
+      font-size: 24px;
+      font-weight: bold;
+      color: #303030;
+      margin-bottom: 15px;
+    }
+    .service-title {
+      font-size: 1.25rem;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .service-icon {
+      color: #303030;
+      font-size: 1.5rem;
+      margin-bottom: 15px;
+    }
+    .service-description {
+      color: #666;
+      margin-bottom: 20px;
+    }
+    .learn-more-link {
+      color: #303030;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .learn-more-link:hover {
+      text-decoration: underline;
+    }
+    .learn-more-link i {
+      margin-left: 5px;
+      transition: transform 0.3s;
+    }
+    .learn-more-link:hover i {
+      transform: translateX(3px);
+    }

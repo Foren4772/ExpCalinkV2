@@ -14,8 +14,8 @@ app = FastAPI()
 # Configuração de sessão
 app.add_middleware(
     SessionMiddleware,
-    secret_key="clinica",
-    session_cookie="clinica_session",
+    secret_key="carlink",
+    session_cookie="carlink_session",
     max_age = 50,  # (5 segundos)
     same_site="lax",
     https_only=False
@@ -31,8 +31,8 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "12345",
-    "database": "clinicaa"
+    "password": "Senha@123",
+    "database": "carlink"
 }
 
 # Função para obter conexão com MySQL
@@ -42,7 +42,7 @@ def get_db():
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     if request.session.get("user_logged_in"):
-        return RedirectResponse(url="/medListar", status_code=303)
+        return RedirectResponse(url="/home", status_code=303)  
 
     login_error = request.session.pop("login_error", None)
     show_login_modal = request.session.pop("show_login_modal", False)
@@ -388,3 +388,4 @@ async def reset_session(request: Request):
     return {"status": "ok"}
 
 Mangum(app)
+
