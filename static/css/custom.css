@@ -1,9 +1,11 @@
-/* Fundo do body */
+/*---------------- INDEX E NAVBAR-------------------- */
+
+/* Fundo */
 body {
   background-color: #ececec;
 }
 
-/* Navbar - versão mais específica */
+/* Navbar */
 .navbar.navbar-light.bg-secondary {
   background-color: #ececec !important;
   box-shadow: none; /* Remove sombra se necessário */
@@ -98,3 +100,5 @@ body {
   z-index: 2;
   margin: -8vw auto 0;
 }
+
+/* ---------------------------------------------------------------------------- */
