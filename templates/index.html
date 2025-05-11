@@ -6,6 +6,8 @@
     <title>Carlink</title>
     <!-- Bootstrap -->
     <link rel="stylesheet" href="/static/css/bootstrap.css" />
+<!-- icones -->
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Seu CSS personalizado -->
     <link rel="stylesheet" href="/static/css/custom.css" />
   </head>
@@ -56,13 +58,7 @@
           <a class="btn btn-primary ml-1" href="/login"> Entrar </a>
         </div>
       </nav>
-      <!-- Banner aviso -->
-
-    <div class="bg-secondary text-white text-center p-3 rounded" 
-     style="cursor: pointer;" 
-     onclick="window.location.href='/login'">
-  Ofertas <strong>exclusivas</strong> do Mês do consumidor! <strong>CLIQUE E SAIBA MAIS!</strong>
-    </div>
+      
 
     <!-- banner imagem  -->
     <a href="/login" class="d-block mt-0 mb-3 text-decoration-none">
@@ -72,80 +68,96 @@
        style="width: 100%; height: auto;">
     </a>
 
+
+    <div class="panel-container">
+  <img src="{{ url_for('static', path='imagens/index-carros.png') }}" class="background-png" alt="Imagem decorativa">
+  <div class="painel-frontal">
+
      <!-- Seção de Serviços -->
   <section class="services-section">
     <div class="container">
       <div class="row justify-content-center mb-5">
         <div class="col-lg-8 text-center">
-          <h1 class="display-5 mb-4">Soluções Automotivas Carlink</h1>
-          <p class="lead text-muted">Conectamos você aos melhores serviços automotivos com tecnologia e eficiência</p>
+          <h1 class="display-5-custom-branco fw-bold mb-2">Serviços Automotivos Carlink</h1>
+          <p class="lead text-muted-custom-branco">Soluções completas para todas as suas necessidades veiculares</p>
         </div>
       </div>
 
-      <div class="row">
-        <!-- Serviço 1 -->
+      <div class="mx-5">
+      <div class="row g-4">
+        <!-- Compra de Veículos -->
         <div class="col-md-6 col-lg-3">
           <div class="service-box">
-            <div class="service-number">01</div>
+            <div class="d-flex">
+            <div class="service-number mr-3">01</div>
             <div class="service-icon">
-              <i class="fas fa-car-alt"></i>
+              <i class="fas fa-car-side"></i> <!-- Ícone de carro -->
             </div>
+        </div>
             <h3 class="service-title">Compra de Veículos</h3>
-            <p class="service-description">Encontre o carro perfeito em nosso catálogo exclusivo com garantia de qualidade.</p>
+            <p class="service-description">Encontre o veículo perfeito em nosso catálogo exclusivo com garantia de qualidade e procedência.</p>
             <a href="/comprar" class="learn-more-link">
-              SAIBA MAIS <i class="fas fa-arrow-right"></i>
+              SAIBA MAIS <i class="fas fa-chevron-right"></i>
             </a>
           </div>
         </div>
 
-        <!-- Serviço 2 -->
+        <!-- Venda de Veículos -->
         <div class="col-md-6 col-lg-3">
           <div class="service-box">
-            <div class="service-number">02</div>
+            <div class="d-flex">
+            <div class="service-number mr-3">02</div>
             <div class="service-icon">
-              <i class="fas fa-hand-holding-usd"></i>
+              <i class="fas fa-tags"></i> 
+            </div>
             </div>
             <h3 class="service-title">Venda de Veículos</h3>
-            <p class="service-description">Venda seu veículo rápido e seguro, com avaliação justa e pagamento garantido.</p>
+            <p class="service-description">Venda seu veículo de forma rápida, segura e pelo melhor preço do mercado.</p>
             <a href="/vender" class="learn-more-link">
-              SAIBA MAIS <i class="fas fa-arrow-right"></i>
+              SAIBA MAIS <i class="fas fa-chevron-right"></i>
             </a>
           </div>
         </div>
 
-        <!-- Serviço 3 -->
+        <!-- Avaliações -->
         <div class="col-md-6 col-lg-3">
           <div class="service-box">
-            <div class="service-number">03</div>
+            <div class="d-flex">
+            <div class="service-number mr-3">03</div>
             <div class="service-icon">
-              <i class="fas fa-clipboard-check"></i>
+              <i class="fas fa-clipboard-list"></i> 
             </div>
-            <h3 class="service-title">Avaliações</h3>
-            <p class="service-description">Avaliação profissional completa com laudo detalhado e transparente.</p>
+            </div>
+            <h3 class="service-title">Avaliações Técnicas</h3>
+            <p class="service-description">Avaliação profissional completa com laudo detalhado e 100% transparente.</p>
             <a href="/avaliacoes" class="learn-more-link">
-              SAIBA MAIS <i class="fas fa-arrow-right"></i>
+              SAIBA MAIS <i class="fas fa-chevron-right"></i>
             </a>
           </div>
         </div>
 
-        <!-- Serviço 4 -->
+        <!-- Financiamento -->
         <div class="col-md-6 col-lg-3">
           <div class="service-box">
-            <div class="service-number">04</div>
+            <div class="d-flex">
+            <div class="service-number mr-3">04</div>
             <div class="service-icon">
-              <i class="fas fa-file-invoice-dollar"></i>
+              <i class="fas fa-hand-holding-usd"></i> <!-- Ícone de dinheiro -->
+            </div>
             </div>
             <h3 class="service-title">Financiamento</h3>
-            <p class="service-description">Condições especiais com as melhores taxas do mercado e aprovação rápida.</p>
+            <p class="service-description">Condições especiais com as melhores taxas e aprovação em tempo recorde.</p>
             <a href="/financiamento" class="learn-more-link">
-              SAIBA MAIS <i class="fas fa-arrow-right"></i>
+              SAIBA MAIS <i class="fas fa-chevron-right"></i>
             </a>
           </div>
+        </div>
         </div>
       </div>
     </div>
   </section>
-  
+  </div>
+    </div>
 
     <!-- Bootstrap JS (necessário para funcionalidades como navbar-toggler) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
