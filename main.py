@@ -21,6 +21,13 @@ app.add_middleware(
     https_only=False
 )
 
+@app.middleware("http")
+async def clear_swal_messages(request: Request, call_next):
+    response = await call_next(request)
+    if "swal_message" in request.session:
+        del request.session["swal_message"]
+    return response
+
 # Configuração de arquivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -42,7 +49,7 @@ def get_db():
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     if request.session.get("user_logged_in"):
-        return RedirectResponse(url="/home", status_code=303)  
+        return RedirectResponse(url="/", status_code=303)  
 
     login_error = request.session.pop("login_error", None)
     show_login_modal = request.session.pop("show_login_modal", False)
@@ -53,6 +60,14 @@ async def index(request: Request):
         "login_error": login_error,
         "show_login_modal": "block" if show_login_modal else "none",
         "nome_usuario": nome_usuario
+    })
+
+@app.get("/login", response_class=HTMLResponse)
+async def mostrar_login(request: Request):
+    login_error = request.session.pop("login_error", None)
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "login_error": login_error
     })
 
 @app.post("/login")
@@ -72,7 +87,7 @@ async def login(
                 request.session["user_logged_in"] = True
                 request.session["nome_usuario"] = user[1]
                 request.session["perfil"] = user[5]  # Perfil (admin ou usuario)
-                return RedirectResponse(url="/medListar", status_code=303)
+                return RedirectResponse(url="/", status_code=303)
             else:
                 request.session["login_error"] = "Usuário ou senha inválidos."
                 request.session["show_login_modal"] = True

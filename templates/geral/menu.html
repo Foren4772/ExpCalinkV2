@@ -1,63 +1,49 @@
-<div class="w3-top">
-    <div class="w3-row w3-white w3-margin-top w3-padding">
-        <div class="w3-half">
-            <a href=".">
-                <img src="{{ url_for('static', path='imagens/logo.jpg') }}" alt="Clínica Médica ABC">
-            </a>
-        </div>
-        <div class="w3-half w3-wide w3-hide-medium w3-hide-small">
-            <div class="w3-right">
-                {% if nome_usuario %}
-                    Gerente: {{ nome_usuario }} &nbsp;
-                    <a href="/logout" class="w3-btn w3-red w3-hover-red">Sair</a>
-                {% else %}
-                    <a href="/logout" class="w3-btn w3-red w3-hover-red">Sair</a>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    <div class="w3-bar w3-theme w3-large" style="z-index:-1">
-        <a class="w3-bar-item w3-button w3-left w3-hide-large w3-hover-light-gray w3-large w3-theme w3-padding-16"
-           href="javascript:void(0)" onclick="w3_open()">
-           ☰
-        </a>
-
-        <a class="w3-bar-item w3-button w3-hide-medium w3-hide-small w3-hover-light-gray w3-padding-16"
-           href="{{ url_for('medListar') }}"
-           onclick="w3_show_nav('menuMedico')">
-           Médico
-        </a>
-    </div>
-</div>
-
-<div class="w3-sidebar w3-margin-top w3-bar-block w3-collapse w3-animate-left"
-     style="z-index:3;width:270px"
-     id="mySidebar">
-    <div class="w3-bar w3-hide-large w3-large">
-        <a href="javascript:void(0)"
-           onclick="w3_show_nav('menuMedico')"
-           class="w3-bar-item w3-button w3-theme w3-hover-light-gray w3-padding-16"
-           style="width:50%">
-           Médicos
-        </a>
-    </div>
-    <a href="javascript:void(0)"
-       onclick="w3_close()"
-       class="w3-button w3-right w3-xlarge w3-hide-large"
-       title="Close Menu">
-       x
+<nav class="navbar navbar-expand-lg navbar-light bg-secondary">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/">
+      <img
+        id="logo"
+        src="{{ url_for('static', path='imagens/logoCarlink-Escura.svg') }}"
+        alt="Logo"
+        height="80"
+        class="d-inline-block align-text-top"
+      />
     </a>
-
-    <div id="menuMedico" class="myMenu">
-        <div class="w3-container">
-            <h3>Menu Médicos</h3>
-        </div>
-
-        <a class="w3-bar-item w3-button" href="{{ url_for('medListar') }}">Relação de Médicos</a>
-        {% if request.session.get("perfil") == "admin" %}
-            <a class="w3-bar-item w3-button" href="{{ url_for('medIncluir') }}">Cadastro de Médicos</a>
-        {% endif %}
+    <button
+      class="navbar-toggler"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#navbarNav"
+      aria-controls="navbarNav"
+      aria-expanded="false"
+      aria-label="Toggle navigation"
+    >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/comprar">Comprar</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/vender">Vender</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/sobre-nos">Sobre Nós</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/politicas">Políticas</a>
+        </li>
+      </ul>
     </div>
-</div>
-
-<script type="text/javascript" src="{{ url_for('static', path='js/myScriptClinic.js') }}"></script>
+    <div class="d-flex">
+      {% if nome_usuario %}
+      <span class="navbar-text me-2">Gerente: {{ nome_usuario }}</span>
+      <a class="btn btn-outline-danger" href="/logout">Sair</a>
+      {% else %}
+      <a class="btn btn-outline-primary me-2" href="/cadastro-usuario">Cadastrar</a>
+      <a class="btn btn-primary ml-2" href="/login">Entrar</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>

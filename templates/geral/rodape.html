@@ -1,21 +1,57 @@
-<div id="Sobre" class="w3-modal w3-animate-opacity">
-    <div class="w3-modal-content" style="max-width:500px">
-        <header class="w3-container w3-theme">
-            <span onclick="document.getElementById('Sobre').style.display='none'" 
-                  class="w3-button w3-display-topright">
-                &times;
-            </span>
-            <h2>Clínica Médica ABC - Exemplo</h2>
-        </header>
-        
-        <div class="w3-container">
-            <p>Site exemplo: <b>Aplicação Web com Python & BD Relacional</b></p>
-            <p class="w3-small">Profa. Cristina Verçosa Pérez Barrios de Souza</p>
-            <p class="w3-small">Prof. Geucimar Briatore</p>
-        </div>
-        
-        <footer class="w3-container w3-theme">
-            <p>PUCPR 2025 (revisão) </p>
-        </footer>
+<style>
+  .bg-custom-dark {
+    background-color: #303030;
+  }
+  .text-custom-gray {
+    color: #b0b0b0;
+  }
+  .text-custom-gray:hover {
+    color: #fff;
+  }
+</style>
+
+<footer class="bg-custom-dark text-white py-4">
+  <div class="container">
+    <div class="row">
+      <div class="col-md-4">
+        <h5 class="text-uppercase mb-4">Sobre Nós</h5>
+        <p class="text-custom-gray">
+          Somos uma empresa dedicada a fornecer soluções inovadoras e de alta qualidade para atender às suas
+          necessidades. A nossa missão é superar as suas expectativas através da excelência em tudo o que fazemos.
+        </p>
+      </div>
+      <div class="col-md-4">
+        <h5 class="text-uppercase mb-4">Links Úteis</h5>
+        <ul class="list-unstyled">
+          <li><a href="/" class="text-custom-gray">Home</a></li>
+          <li><a href="/sobre" class="text-custom-gray">Serviços</a></li>
+          <li><a href="/contatos" class="text-custom-gray">Onde nos encontrar</a></li>
+        </ul>
+      </div>
+      <div class="col-md-4">
+        <h5 class="text-uppercase mb-4">Contatos</h5>
+        <p class="text-custom-gray"><i class="fas fa-map-marker-alt me-2"></i>123 Rua Principal, Cidade</p>
+        <p class="text-custom-gray"><i class="fas fa-phone me-2"></i>+123 456 7890</p>
+        <p class="text-custom-gray"><i class="fas fa-envelope me-2"></i>carlink@carlink.com</p>
+      </div>
     </div>
-</div>
+    <hr class="my-4" />
+    <div class="row">
+      <div class="col-md-6">
+        <p class="text-custom-gray">&copy; 2025 Carlink. Todos os direitos reservados.</p>
+      </div>
+      <div class="col-md-6 text-md-end">
+        <a href="https://facebook.com" class="text-custom-gray me-2"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://x.com" class="text-custom-gray me-2"><i class="fab fa-twitter"></i></a>
+        <a href="https://instagram.com" class="text-custom-gray me-2"><i class="fab fa-instagram"></i></a>
+        <a href="https://linkedin.com" class="text-custom-gray" target="_blank"><i class="fab fa-linkedin-in"></i></a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1nqEd00vN9aQvX6jIW3GhMh9G93z"
+  crossorigin="anonymous"
+></script>

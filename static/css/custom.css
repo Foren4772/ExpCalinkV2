@@ -8,14 +8,14 @@ body {
 /* Navbar */
 .navbar.navbar-light.bg-secondary {
   background-color: #ececec !important;
-  box-shadow: none; /* Remove sombra se necessário */
+  box-shadow: none; 
 }
 
 
 .services-section {
       padding: 60px 0;
       background-color: #303030;
-      border-radius: 6px;
+       border-radius: 10px 10px 0 0;
     }
     .service-box {
       border-left: 4px solid #303030;
