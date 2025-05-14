@@ -13,6 +13,12 @@
   </style>
 </head>
 <body class="bg-light">
+    <div class="container">{% include 'geral/menu.html' %}</div>
+  
+  
+    <form action="/cadastrocarro" method="post" enctype="multipart/form-data">
+
+
 
   <div class="container mt-4" style="max-width: 700px;">
     <h1 class="mb-4">Cadastro de Carro</h1>
@@ -44,7 +50,9 @@
       </div>
     </form>
   </div>
-
+    <footer class="mt-auto">{% include 'geral/rodape.html' %}</footer>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="js/alertas.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script>
     const botaoCor = '#1a1a1a';

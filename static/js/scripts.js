@@ -1,4 +1,4 @@
-document.getElementById('loginForm').addEventListener('submit', function(e) {
+document.getElementById('loginForm').addEventListener('submit', function (e) {
     // Validações básicas no frontend
     const login = document.getElementById('Login').value.trim();
     const senha = document.getElementById('Senha').value.trim();
