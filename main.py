@@ -161,67 +161,6 @@ async def cadastrar_usuario(
     finally:
         db.close()
 
-# Carro Routes
-@app.get("/cadastrocarro", name="cadastrocarro", response_class=HTMLResponse)
-async def cadastro_carro_form(request: Request):
-    """
-    Exibe o formulário de cadastro de carro.
-    """
-    nome_usuario = request.session.get("nome_usuario", None)
-    return templates.TemplateResponse("cadastrocarro.html", {"request": request, "nome_usuario": nome_usuario})
-
-@app.post("/cadastrocarro", name="cadastrocarro_post")
-async def cadastrar_carro(
-    request: Request,
-    marca: str = Form(...),
-    modelo: str = Form(...),
-    ano: int = Form(...),
-    placa: str = Form(...),
-    renavam: str = Form(...),
-    chassi: str = Form(...),
-    cor: str = Form(...),
-    motor: str = Form(...),
-    potencia: float = Form(...),
-    preco: float = Form(...),
-    imagem: UploadFile = File(None),
-    db: pymysql.Connection = Depends(get_db)  # Use type hinting for clarity
-):
-    """
-    Processa o envio do formulário de cadastro de carro e salva os dados no banco de dados.
-    """
-    try:
-        foto_bytes: Optional[bytes] = None
-        if imagem and imagem.filename:
-            foto_bytes = await imagem.read()
-
-        with db.cursor() as cursor:
-            sql = """
-                INSERT INTO Carro (Marca, Modelo, Ano, Placa, Renavam, Chassi, Cor, Motor, Potencia, Preco, Imagem) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(sql, (marca, modelo, ano, placa, renavam, chassi, cor, motor, potencia, preco, foto_bytes))
-            db.commit()
-
-        request.session["swal_message"] = {
-            "icon": "success",
-            "title": "Cadastro de Carro",
-            "text": "Carro cadastrado com sucesso!",
-            "confirmButtonColor": '#303030'
-        }
-        return RedirectResponse(url="/cadastrocarro", status_code=303)
-
-    except Exception as e:
-        request.session["swal_message"] = {
-            "icon": "error",
-            "title": "Erro ao Cadastrar Carro",
-            "text": f"Erro ao cadastrar o carro: {str(e)}",
-            "confirmButtonColor": '#d33'
-        }
-        return RedirectResponse(url="/cadastrocarro", status_code=303)
-
-    finally:
-        db.close()
-
 @app.get("/medListar", name="medListar", response_class=HTMLResponse)
 async def listar_medicos(request: Request, db=Depends(get_db)):
     if not request.session.get("user_logged_in"):
