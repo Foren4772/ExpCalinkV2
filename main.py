@@ -16,16 +16,39 @@ app.add_middleware(
     SessionMiddleware,
     secret_key="carlink",
     session_cookie="carlink_session",
-    max_age = 50,  # (5 segundos)
+    max_age = 60,  
     same_site="lax",
     https_only=False
 )
 
 @app.middleware("http")
 async def clear_swal_messages(request: Request, call_next):
-    response = await call_next(request)
-    if "swal_message" in request.session:
-        del request.session["swal_message"]
+    # Mostra a sessão ANTES de qualquer coisa nesta requisição específica
+    print(f"DEBUG clear_swal_messages (INÍCIO): ID da Sessão (hash): {hash(str(request.session)) if 'session' in request.scope else 'N/A'}")
+    print(f"DEBUG clear_swal_messages (INÍCIO): Sessão ANTES de call_next: {dict(request.session) if 'session' in request.scope else 'Sessão não acessível ainda'}")
+
+    response = await call_next(request) # Processa a rota
+
+    # Mostra a sessão DEPOIS que a rota foi processada, mas ANTES de tentar limpar
+    print(f"DEBUG clear_swal_messages (MEIO): Sessão DEPOIS de call_next, ANTES de limpar: {dict(request.session)}")
+
+    try:
+        if "swal_message" in request.session:
+            print("DEBUG clear_swal_messages (MEIO): 'swal_message' ENCONTRADA. Tentando deletar...")
+            del request.session["swal_message"]
+            print("DEBUG clear_swal_messages (FIM): 'swal_message' DELETADA da instância da sessão atual.")
+            # Para verificar se a modificação "pegou" na sessão atual:
+            if "swal_message" not in request.session:
+                print("DEBUG clear_swal_messages (FIM): Confirmação - 'swal_message' NÃO está mais na sessão atual.")
+            else:
+                print("DEBUG clear_swal_messages (FIM): ALERTA - 'swal_message' AINDA está na sessão atual APÓS del!")
+        else:
+            print("DEBUG clear_swal_messages (FIM): 'swal_message' NÃO foi encontrada na sessão para deletar.")
+    except Exception as e:
+        print(f"AVISO clear_swal_messages: Exceção ao tentar limpar 'swal_message': {e}")
+
+    # Mostra a sessão FINAL, que deveria ser salva pelo SessionMiddleware
+    print(f"DEBUG clear_swal_messages (FIM): Sessão FINAL a ser persistida: {dict(request.session)}")
     return response
 
 # Configuração de arquivos estáticos
@@ -48,27 +71,22 @@ def get_db():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    if request.session.get("user_logged_in"):
-        return RedirectResponse(url="/", status_code=303)  
-
-    login_error = request.session.pop("login_error", None)
-    show_login_modal = request.session.pop("show_login_modal", False)
+    # Pega o nome do usuário da sessão. Será None se não estiver logado ou se a chave não existir.
     nome_usuario = request.session.get("nome_usuario", None)
+    user_is_logged_in = bool(nome_usuario)
+
+    print(f"DEBUG: Rota '/', nome_usuario da sessão: {nome_usuario}") # Para depuração
 
     return templates.TemplateResponse("index.html", {
         "request": request,
-        "login_error": login_error,
-        "show_login_modal": "block" if show_login_modal else "none",
-        "nome_usuario": nome_usuario
-    })
+        "nome_usuario": nome_usuario, # ESSENCIAL para o menu.html funcionar como esperado
+        "user_logged_in": user_is_logged_in # Opcional, se index.html também usar
+    }) 
 
 @app.get("/login", response_class=HTMLResponse)
 async def mostrar_login(request: Request):
-    login_error = request.session.pop("login_error", None)
-    return templates.TemplateResponse("login.html", {
-        "request": request,
-        "login_error": login_error
-    })
+    request.session.pop("login_error", None)
+    return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
 async def login(
@@ -87,6 +105,7 @@ async def login(
                 request.session["user_logged_in"] = True
                 request.session["nome_usuario"] = user[1]
                 request.session["cargo"] = user[8]
+                print(user[1])
                 return RedirectResponse(url="/", status_code=303)
             else:
                 request.session["swal_message"] = {
