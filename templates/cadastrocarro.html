@@ -1,161 +1,252 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cadastro de Carro</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
-  <style>
-    .custom-button {
-      background-color: #1a1a1a !important;
-    }
-  </style>
-</head>
-<body class="bg-light">
-
-  <div class="container mt-4" style="max-width: 700px;">
-    <h1 class="mb-4">Cadastro de Carro</h1>
-    <form id="formCarro">
-      <div class="row g-3">
-        <div class="col-md-6 mb-3"><label class="form-label">Marca</label><input type="text" id="marca" class="form-control py-2" placeholder="Digite marca"/></div>
-        <div class="col-md-6 mb-3"><label class="form-label">Modelo</label><input type="text" id="modelo" class="form-control py-2" placeholder="Digite modelo"/></div>
-      </div>
-      <div class="row g-3">
-        <div class="col-md-4 mb-3"><label class="form-label">Ano</label><input type="number" id="ano" class="form-control py-2" placeholder="Digite ano"/></div>
-        <div class="col-md-4 mb-3"><label class="form-label">Placa</label><input type="text" id="placa" class="form-control py-2" maxlength="7" placeholder="Digite placa"/></div>
-        <div class="col-md-4 mb-3"><label class="form-label">Cor</label><input type="text" id="cor" class="form-control py-2" placeholder="Digite cor"/></div>
-      </div>
-      <div class="row g-3">
-        <div class="col-md-6 mb-3"><label class="form-label">Renavam</label><input type="text" id="renavam" class="form-control py-2" maxlength="11" placeholder="Digite renavam"/></div>
-        <div class="col-md-6 mb-3"><label class="form-label">Chassi</label><input type="text" id="chassi" class="form-control py-2" placeholder="Digite chassi"/></div>
-      </div>
-      <div class="row g-3">
-        <div class="col-md-6 mb-3"><label class="form-label">Motor</label><input type="text" id="motor" class="form-control py-2" placeholder="Digite motor"/></div>
-        <div class="col-md-6 mb-3"><label class="form-label">Potência</label><input type="number" id="potencia" class="form-control py-2" placeholder="Digite potência"/></div>
-      </div>
-      <div class="row g-3">
-        <div class="col-md-6 mb-3"><label class="form-label">Preço Pretendido</label><input type="text" id="preco" class="form-control py-2" placeholder="R$0,00"/></div>
-      </div>
-      <div class="d-flex justify-content-start mt-3">
-        <button type="submit" class="btn px-4 py-2" style="background-color: #1a1a1a; color: white; border: none;">
-            Cadastrar
-        </button>
-      </div>
-    </form>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script>
-    const botaoCor = '#1a1a1a';
-    const form = document.getElementById('formCarro');
-
-    function formatarMoeda(valor) {
-      valor = valor.replace(/\D/g, '');
-      const numero = parseInt(valor, 10);
-      return isNaN(numero) ? '' : (numero / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    }
-
-    function validarPlaca(placa) {
-      return /^[A-Z]{3}-?\d{4}$|^[A-Z]{3}\d{1}[A-Z]{1}\d{2}$/.test(placa);
-    }
-
-    function validarCor(cor) {
-      return /^[A-Za-zÀ-ÿ\s]+$/.test(cor);
-    }
-
-    function validarAno(ano) {
-      const anoNum = parseInt(ano, 10);
-      const anoAtual = new Date().getFullYear();
-      return Number.isInteger(anoNum) && anoNum > 0 && anoNum <= anoAtual;
-    }
-
-    function erroAlerta(msg) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Erro',
-        text: msg,
-        confirmButtonColor: botaoCor,
-        confirmButtonText: 'Fechar',
-        customClass: { confirmButton: 'custom-button' }
-      });
-    }
-
-    function sucessoAlerta(msg) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Sucesso!',
-        text: msg,
-        confirmButtonColor: botaoCor,
-        confirmButtonText: 'Fechar',
-        customClass: { confirmButton: 'custom-button' }
-      });
-    }
-
-    document.getElementById('preco').addEventListener('input', function () {
-      this.value = formatarMoeda(this.value);
-    });
-
-    document.getElementById('placa').addEventListener('input', function () {
-      this.value = this.value.toUpperCase().slice(0, 7);
-    });
-
-    document.getElementById('renavam').addEventListener('input', function () {
-      this.value = this.value.replace(/\D/g, '').slice(0, 11);
-    });
-
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-
-      const campos = ['marca','modelo','ano','placa','cor','renavam','chassi','motor','potencia','preco'];
-      let valido = true;
-      let erros = [];
-
-      campos.forEach(id => {
-        const el = document.getElementById(id);
-        if (!el.value.trim()) {
-          valido = false;
-          erros.push(`${id.charAt(0).toUpperCase() + id.slice(1)} é obrigatório`);
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Carro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 700px;
+            margin-top: 20px;
         }
-      });
 
-      const ano = document.getElementById('ano').value;
-      if (ano && !validarAno(ano)) {
-        valido = false;
-        erros.push('Ano inválido');
-      }
+        .form-control.is-invalid {
+            border-color: #dc3545;
+        }
 
-      const renavam = document.getElementById('renavam').value;
-      if (renavam && !/^[0-9]{9,11}$/.test(renavam)) {
-        valido = false;
-        erros.push('RENAVAM inválido');
-      }
+        .text-danger {
+            color: #dc3545;
+            font-size: 0.875rem;
+        }
 
-      const placa = document.getElementById('placa').value;
-      if (placa && !validarPlaca(placa)) {
-        valido = false;
-        erros.push('Placa inválida');
-      }
+        #imagemPreview {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
 
-      const cor = document.getElementById('cor').value;
-      if (cor && !validarCor(cor)) {
-        valido = false;
-        erros.push('Cor inválida');
-      }
+<body>
+    <div class="container">
+        <h1 class="mb-4">Cadastro de Carro</h1>
+        <form id="cadastroCarroForm">
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    <label for="marca" class="form-label">Marca</label>
+                    <input type="text" class="form-control py-2" id="marca" placeholder="Digite marca">
+                    <div class="text-danger" id="marcaErro"></div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="modelo" class="form-label">Modelo</label>
+                    <input type="text" class="form-control py-2" id="modelo" placeholder="Digite modelo">
+                    <div class="text-danger" id="modeloErro"></div>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4 mb-3">
+                    <label for="ano" class="form-label">Ano</label>
+                    <input type="number" class="form-control py-2" id="ano" placeholder="Digite ano">
+                    <div class="text-danger" id="anoErro"></div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="placa" class="form-label">Placa</label>
+                    <input type="text" class="form-control py-2" id="placa" placeholder="Digite placa" maxlength="7">
+                    <div class="text-danger" id="placaErro"></div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="cor" class="form-label">Cor</label>
+                    <input type="text" class="form-control py-2" id="cor" placeholder="Digite cor">
+                    <div class="text-danger" id="corErro"></div>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    <label for="renavam" class="form-label">RENAVAM</label>
+                    <input type="text" class="form-control py-2" id="renavam" placeholder="Digite renavam" maxlength="11">
+                    <div class="text-danger" id="renavamErro"></div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="chassi" class="form-label">Chassi</label>
+                    <input type="text" class="form-control py-2" id="chassi" placeholder="Digite chassi">
+                    <div class="text-danger" id="chassiErro"></div>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    <label for="motor" class="form-label">Motor</label>
+                    <input type="text" class="form-control py-2" id="motor" placeholder="Digite motor">
+                    <div class="text-danger" id="motorErro"></div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="potencia" class="form-label">Potência</label>
+                    <input type="number" class="form-control py-2" id="potencia" placeholder="Digite potencia">
+                    <div class="text-danger" id="potenciaErro"></div>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    <label for="preco" class="form-label">Preço Pretendido</label>
+                    <input type="text" class="form-control py-2" id="preco" placeholder="R$0,00">
+                    <div class="text-danger" id="precoErro"></div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="imagem" class="form-label">Imagem do Carro</label>
+                    <input type="file" class="form-control py-2" id="imagem" accept="image/*">
+                    <div class="text-danger" id="imagemErro"></div>
+                    <img id="imagemPreview" src="" alt="Pré-visualização da Imagem" style="display: none;">
+                </div>
+            </div>
 
-      const potencia = document.getElementById('potencia').value;
-      if (potencia && isNaN(potencia)) {
-        valido = false;
-        erros.push('Potência inválida');
-      }
+            <div class="d-flex justify-content-start mt-3">
+                <button type="submit" class="btn px-4 py-2" style="background-color: #1a1a1a; color: white; border: none;">
+                     Cadastrar
+                </button>
 
-      if (!valido) {
-        erroAlerta(erros.join(', '));
-        return;
-      }
+            </div>
+        </form>
+    </div>
 
-      sucessoAlerta('Carro cadastrado com sucesso!');
-    });
-  </script>
+    <script>
+        const form = document.getElementById('cadastroCarroForm');
+        const campos = ['marca', 'modelo', 'ano', 'placa', 'cor', 'renavam', 'chassi', 'motor', 'potencia', 'preco', 'imagem'];
+        const erros = {};
+        const imagemInput = document.getElementById('imagem');
+        const imagemPreview = document.getElementById('imagemPreview');
+        const renavamInput = document.getElementById('renavam');
+
+        const validarPlaca = (placa) => /^[A-Z]{3}-?\d{4}$|^[A-Z]{3}\d{1}[A-Z]{1}\d{2}$/.test(placa.toUpperCase());
+        const validarCor = (cor) => /^[A-Za-zÀ-ÿ\s]+$/.test(cor);
+        const validarAno = (ano) => {
+            const anoNum = parseInt(ano, 10);
+            const anoAtual = new Date().getFullYear();
+            return Number.isInteger(anoNum) && anoNum > 0 && anoNum <= anoAtual;
+        };
+
+        const formatarMoeda = (valor) => {
+            valor = valor.replace(/\D/g, "");
+            const numero = parseInt(valor, 10);
+            if (isNaN(numero)) return "";
+            return (numero / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        };
+
+        const limparErros = () => {
+            campos.forEach(campo => {
+                document.getElementById(campo + 'Erro').textContent = '';
+                document.getElementById(campo).classList.remove('is-invalid');
+            });
+        };
+
+        const exibirErros = () => {
+            limparErros();
+            let temErro = false;
+            for (const campo in erros) {
+                if (erros[campo]) {
+                    document.getElementById(campo + 'Erro').textContent = erros[campo];
+                    document.getElementById(campo).classList.add('is-invalid');
+                    temErro = true;
+                }
+            }
+            return temErro;
+        };
+
+        const validarFormulario = () => {
+            erros = {};
+
+            campos.forEach(campo => {
+                if (campo !== 'imagem') {
+                    const valor = document.getElementById(campo).value.trim();
+                    if (!valor) {
+                        erros[campo] = "Este campo é obrigatório!";
+                    }
+                }
+            });
+
+            const ano = document.getElementById('ano').value;
+            if (ano && !validarAno(ano)) {
+                erros.ano = "Ano deve ser o ano atual ou anteriores!";
+            }
+
+            const renavam = document.getElementById('renavam').value;
+            if (renavam && !/^[0-9]{9,11}$/.test(renavam)) {
+                erros.renavam = "RENAVAM deve ter entre 9 e 11 dígitos!";
+            }
+
+            const placa = document.getElementById('placa').value;
+            if (placa && !validarPlaca(placa)) {
+                erros.placa = "Formato inválido! Use AAA-1234 ou AAA1B23";
+            }
+
+            const cor = document.getElementById('cor').value;
+            if (cor && !validarCor(cor)) {
+                erros.cor = "Cor deve conter apenas letras!";
+            }
+
+            const potencia = document.getElementById('potencia').value;
+            if (potencia && isNaN(potencia)) {
+                erros.potencia = "Potência deve ser um número válido!";
+            }
+
+            if (imagemInput.files.length === 0) {
+                erros.imagem = "Selecione uma imagem do carro!";
+            }
+
+            return Object.keys(erros).length === 0;
+        };
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            if (validarFormulario()) {
+                alert("Carro cadastrado com sucesso!");
+                form.reset();
+                limparErros();
+                imagemPreview.style.display = 'none';
+
+                const formData = new FormData(form);
+                console.log("Dados do formulário:", formData);
+
+            } else {
+                exibirErros();
+            }
+        });
+
+        document.getElementById('placa').addEventListener('input', function () {
+            if (this.value.length > 7) {
+                this.value = this.value.slice(0, 7);
+            }
+            this.value = this.value.toUpperCase();
+        });
+
+        document.getElementById('renavam').addEventListener('input', function () {
+            this.value = this.value.replace(/\D/g, ''); // Remover não-dígitos
+            if (this.value.length > 11) {
+                this.value = this.value.slice(0, 11);
+            }
+        });
+
+        document.getElementById('preco').addEventListener('input', function () {
+            this.value = formatarMoeda(this.value);
+        });
+
+        imagemInput.addEventListener('change', function () {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    imagemPreview.src = e.target.result;
+                    imagemPreview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            } else {
+                imagemPreview.src = '';
+                imagemPreview.style.display = 'none';
+            }
+        });
+
+    </script>
 </body>
+
 </html>
