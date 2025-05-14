@@ -80,18 +80,22 @@ async def login(
     try:
         with db.cursor() as cursor:
 
-            cursor.execute("SELECT * FROM Usuario WHERE Login = %s AND Senha = MD5(%s)", (Login, Senha))
+            cursor.execute("SELECT * FROM usuario WHERE email = %s AND senha = MD5(%s)", (Login, Senha))
             user = cursor.fetchone()
 
             if user:
                 request.session["user_logged_in"] = True
                 request.session["nome_usuario"] = user[1]
-                request.session["perfil"] = user[5]  # Perfil (admin ou usuario)
+                request.session["cargo"] = user[8]
                 return RedirectResponse(url="/", status_code=303)
             else:
-                request.session["login_error"] = "Usuário ou senha inválidos."
-                request.session["show_login_modal"] = True
-                return RedirectResponse(url="/", status_code=303)
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Erro no login",
+                    "text": "Usuário ou senha inválidos.",
+                    "confirmButtonColor": '#303030'
+                }
+                return RedirectResponse(url="/login", status_code=303)
     finally:
         db.close()
 
@@ -191,7 +195,7 @@ async def listar_medicos(request: Request, db=Depends(get_db)):
 async def medIncluir(request: Request, db=Depends(get_db)):
     if not request.session.get("user_logged_in"):
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("perfil") != "admin":
+    if request.session.get("cargo") != "admin":
         return RedirectResponse(url="/medListar", status_code=303)
 
     # Obter especialidades do banco para o combo
@@ -222,7 +226,7 @@ async def medIncluir_exe(
 ):
     if not request.session.get("user_logged_in"):
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("perfil") != "admin":
+    if request.session.get("cargo") != "admin":
         return RedirectResponse(url="/medListar", status_code=303)
 
     foto_bytes = None
@@ -260,7 +264,7 @@ async def med_excluir(request: Request, id: int, db=Depends(get_db)):
 
     if not request.session.get("user_logged_in"):
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("perfil") != "admin":
+    if request.session.get("cargo") != "admin":
         return RedirectResponse(url="/medListar", status_code=303)
 
     with db.cursor(pymysql.cursors.DictCursor) as cursor:
@@ -295,7 +299,7 @@ async def med_excluir_exe(request: Request, id: int = Form(...), db=Depends(get_
 
     if not request.session.get("user_logged_in"):
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("perfil") != "admin":
+    if request.session.get("cargo") != "admin":
         return RedirectResponse(url="/medListar", status_code=303)
 
     try:
@@ -328,7 +332,7 @@ async def med_atualizar(request: Request, id: int, db=Depends(get_db)):
 
     if not request.session.get("user_logged_in"):
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("perfil") != "admin":
+    if request.session.get("cargo") != "admin":
         return RedirectResponse(url="/medListar", status_code=303)
 
     with db.cursor(pymysql.cursors.DictCursor) as cursor:
