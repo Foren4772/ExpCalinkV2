@@ -10,7 +10,7 @@
   <body class="d-flex flex-column min-vh-100">
     <div class="container">{% include 'geral/menu.html' %}</div>
     <div class="container mt-5" style="max-width: 500px">
-      <h1 class="mb-4">Cadastro</h1>
+      <h1 class="mb-4">Cadastro Usuario</h1>
 
       <form id="cadastroForm" action="/cadastro-usuario" method="POST" class="mb-5">
         <div class="mb-3">
@@ -38,21 +38,33 @@
         </div>
 
         <div class="mb-3">
-          <label for="email" class="form-label">Email</label>
-          <input type="email" class="form-control py-2" id="email" name="email" placeholder="Seu email" required />
+          <label for="cpf" class="form-label">CPF</label>
+          <input type="text" class="form-control py-2" id="cpf" name="cpf" placeholder="Seu CPF" required />
           <div class="text-danger" id="erro-email"></div>
         </div>
 
         <div class="mb-3">
-          <label for="login" class="form-label">Login</label>
-          <input type="text" class="form-control py-2" id="login" name="login" placeholder="Nome de usuário" required />
+          <label for="email" class="form-label">E-mail</label>
+          <input type="email" class="form-control py-2" id="email" name="email" placeholder="Seu email" required />
           <div class="text-danger" id="erro-login"></div>
+        </div>
+
+        <div class="mb-3">
+          <label for="telefone" class="form-label">Telefone</label>
+          <input type="tel" class="form-control py-2" id="telefone" name="telefone" placeholder="Número de telefone" required />
+          <div class="text-danger" id="erro-telefone"></div>
         </div>
 
         <div class="mb-3">
           <label for="senha" class="form-label">Senha</label>
           <input type="password" class="form-control py-2" id="senha" name="senha" placeholder="Sua senha" required />
           <div class="text-danger" id="erro-senha"></div>
+        </div>
+
+        <div class="mb-3">
+          <label for="confirma_senha" class="form-label">Confirme a senha</label>
+          <input type="password" class="form-control py-2" id="confirma_senha" name="confirma_senha" placeholder="Repita a senha" required />
+          <div class="text-danger" id="erro-confSenha"></div>
         </div>
 
         <div class="d-flex justify-content-between mt-3">
