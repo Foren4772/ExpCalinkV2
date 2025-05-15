@@ -161,7 +161,11 @@ async def cadastrar_usuario(
     finally:
         db.close()
 
-app.get("/cadastrocarro", name="cadastrocarro", response_class=HTMLResponse)
+@app.get("/cadastro-usuario", response_class=HTMLResponse)
+async def cadastro_usuario(request: Request):
+    return templates.TemplateResponse("cadastro-usuario.html", {"request": request})
+
+@app.get("/cadastrocarro", response_class=HTMLResponse)
 async def cadastro_carro_form(request: Request):
     """
     Exibe o formulário de cadastro de carro.
@@ -189,7 +193,7 @@ async def cadastrar_carro(
     Processa o envio do formulário de cadastro de carro e salva os dados no banco de dados.
     """
     try:
-        foto_bytes: Optional[bytes] = None
+        #foto_bytes: Optional[bytes] = None
         if imagem and imagem.filename:
             foto_bytes = await imagem.read()
 
