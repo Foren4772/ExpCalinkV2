@@ -2,7 +2,7 @@ import pymysql
 import base64
 
 from mangum import Mangum
-from fastapi import FastAPI, Request, Form, Depends, UploadFile, File
+from fastapi import FastAPI, Request, Form, File, UploadFile, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -163,7 +163,62 @@ async def cadastrar_usuario(
 
 @app.get("/cadastro-usuario", response_class=HTMLResponse)
 async def cadastro_usuario(request: Request):
+    request.session.pop("login_error", None)
     return templates.TemplateResponse("cadastro-usuario.html", {"request": request})
+
+@app.post("/cadastro-usuario", name="criar_usuario")
+async def criar_usuario(
+    request: Request,
+    nome: str = Form(...),
+    genero: str = Form(...),
+    dataNascimento: str = Form(...),
+    cpf: str = Form(...),
+    email: str = Form(...),
+    telefone: str = Form(...),
+    senha: str = Form(...),
+    cargo_id: int = Form(None),
+    imagemPerfil: UploadFile = File(None),  # Aqui: espera arquivo via multipart/form-data
+    db = Depends(get_db)
+):
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("SELECT id_usuario FROM usuario WHERE cpf = %s", (cpf,))
+            if cursor.fetchone():
+                request.session["nao_autenticado"] = True
+                request.session["mensagem_header"] = "Cadastro de Usuário"
+                request.session["mensagem"] = "Erro: Este CPF já está cadastrado!"
+                return RedirectResponse(url="/usuario/form", status_code=303)
+
+            imagem_bytes = None
+            if imagemPerfil:
+                imagem_bytes = await imagemPerfil.read()
+
+            data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+
+            sql = """
+                INSERT INTO usuario 
+                (nome, genero, dataNascimento, cpf, email, telefone, senha, cargo_id, imagemPerfil)
+                VALUES (%s, %s, %s, %s, %s, %s, MD5(%s), %s, %s)
+            """
+            cursor.execute(sql, (
+                nome, genero, data_nascimento_sql, cpf, email,
+                telefone, senha, cargo_id, imagem_bytes
+            ))
+            db.commit()
+
+            request.session["nao_autenticado"] = True
+            request.session["mensagem_header"] = "Cadastro de Usuário"
+            request.session["mensagem"] = "Usuário cadastrado com sucesso!"
+            return RedirectResponse(url="/usuario/form", status_code=303)
+
+    except Exception as e:
+        request.session["nao_autenticado"] = True
+        request.session["mensagem_header"] = "Cadastro de Usuário"
+        request.session["mensagem"] = f"Erro ao cadastrar usuário: {str(e)}"
+        return RedirectResponse(url="/usuario/form", status_code=303)
+
+    finally:
+        db.close()
 
 @app.get("/cadastrocarro", response_class=HTMLResponse)
 async def cadastro_carro_form(request: Request):
