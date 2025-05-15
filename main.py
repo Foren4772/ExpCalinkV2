@@ -61,7 +61,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "Senha@123",
+    "password": "PUC@1234",
     "database": "carlink"
 }
 
@@ -186,6 +186,7 @@ async def cadastrar_carro(
     motor: str = Form(...),
     potencia: float = Form(...),
     preco: float = Form(...),
+    descricao: str = Form(...),
     imagem: UploadFile = File(None),
     db: pymysql.Connection = Depends(get_db)  # Use type hinting for clarity
 ):
