@@ -33,17 +33,19 @@
           <h1 class="mb-4">Cadastro de Carro</h1>
       
           <div class="row g-3">
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Marca</label>
-              <input type="text" id="marca" name="marca" class="form-control py-2" placeholder="Digite marca"/>
-            </div>
           <div class="col-md-6 mb-3">
-            <label class="form-label">Modelo</label>
-            <input type="text" id="modelo" name="modelo" class="form-control py-2" placeholder="Digite modelo"/>
+            <label for="modelo">Modelo</label>
+            <select id="modelo" name="modelo" class="form-control py-2">
+            <option value="">Selecione um modelo</option>
+            {% for modelo in modelos %}
+                <option value="{{ modelo.id_modelo }}">{{ modelo.marca_nome }} - {{ modelo.modelo_nome }}</option>
+            {% endfor %}
+            </select>
+
           </div>
       </div>
                 <div class="row g-3">
-                    <div class="col-md-4 mb-3"><label class="form-label">Ano</label><input type="number" id="ano" name="ano" class="form-control py-2" placeholder="Digite ano"/></div>
+                    <div class="col-md-4 mb-3"><label class="form-label">Ano</label><input type="date" id="ano" name="ano" class="form-control py-2" placeholder="Digite ano"/></div>
                     <div class="col-md-4 mb-3"><label class="form-label">Placa</label><input type="text" id="placa" name="placa"class="form-control py-2" maxlength="7" placeholder="Digite placa"/></div>
                     <div class="col-md-4 mb-3"><label class="form-label">Cor</label><input type="text" id="cor" name="cor" class="form-control py-2" placeholder="Digite cor"/></div>
                 </div>
@@ -144,66 +146,82 @@
         document.getElementById('cor').addEventListener('input', function () {
             this.value = this.value.replace(/[^A-Za-zÀ-ÿ\s]/g, '');
         });
-
+        "stararasdfghjklkehjklçlk"
         form.addEventListener('submit', function (e) {
-          e.preventDefault();
+            e.preventDefault(); // Impede o envio padrão para validação
 
-          const camposObrigatorios = ['marca','modelo','ano','placa','cor','renavam','chassi','motor','potencia','preco', 'descricao'];
-          let valido = true;
-          let erros = [];
+            const camposObrigatorios = ['modelo', 'ano', 'placa', 'cor', 'renavam', 'chassi', 'motor', 'potencia', 'preco', 'descricao'];
+            let valido = true;
+            let erros = [];
 
-          camposObrigatorios.forEach(id => {
-              const el = document.getElementById(id);
-              if (!el.value) {
-                  valido = false;
-                  erros.push(`${id.charAt(0).toUpperCase() + id.slice(1)} é obrigatório`);
-              }
-          });
+            // Validação dos campos obrigatórios
+            camposObrigatorios.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el.value) {
+                    valido = false;
+                    erros.push(`${id.charAt(0).toUpperCase() + id.slice(1)} é obrigatório`);
+                }
+            });
 
-          const ano = document.getElementById('ano').value;
-          if (ano && !validarAno(ano)) {
-              valido = false;
-              erros.push('Ano inválido');
-          }
+            // Validação do "ano" - Verifica se o ano está no formato correto
+            const anoData = document.getElementById('ano').value;
+            if (!anoData) {
+                valido = false;
+                erros.push('Ano é obrigatório');
+            } else {
+                // Extrai apenas o ano da data (YYYY)
+                const ano = new Date(anoData).getFullYear();
+                if (isNaN(ano) || ano <= 0) {
+                    valido = false;
+                    erros.push('Ano inválido');
+                } else {
+                    // Atualiza o campo para enviar apenas o ano
+                }
+            }
 
-          const renavam = document.getElementById('renavam').value;
-          if (renavam && !/^[0-9]{9,11}$/.test(renavam)) {
-              valido = false;
-              erros.push('RENAVAM inválido');
-          }
+            // Validação de outros campos (placa, renavam, etc.)
+            const renavam = document.getElementById('renavam').value;
+            if (renavam && !/^[0-9]{9,11}$/.test(renavam)) {
+                valido = false;
+                erros.push('RENAVAM inválido');
+            }
 
-          const placa = document.getElementById('placa').value;
-          if (placa && !validarPlaca(placa)) {
-              valido = false;
-              erros.push('Placa inválida');
-          }
+            const placa = document.getElementById('placa').value;
+            if (placa && !validarPlaca(placa)) {
+                valido = false;
+                erros.push('Placa inválida');
+            }
 
-          const cor = document.getElementById('cor').value;
-          if (cor && !validarCor(cor)) {
-              valido = false;
-              erros.push('Cor inválida');
-          }
+            const cor = document.getElementById('cor').value;
+            if (cor && !validarCor(cor)) {
+                valido = false;
+                erros.push('Cor inválida');
+            }
 
-          const potenciaStr = document.getElementById('potencia').value;
-          const potenciaNum = parseFloat(potenciaStr);
-          if (potenciaStr && (isNaN(potenciaNum) || potenciaNum <= 0)) {
-              valido = false;
-              erros.push('Potência inválida');
-          }
+            const potenciaStr = document.getElementById('potencia').value;
+            const potenciaNum = parseFloat(potenciaStr);
+            if (potenciaStr && (isNaN(potenciaNum) || potenciaNum <= 0)) {
+                valido = false;
+                erros.push('Potência inválida');
+            }
 
-          if (!valido) {
-              mostrarAlerta("erro", erros.join(', '));
-              return;
-          }
+            // Exibe os erros, caso haja algum
+            if (!valido) {
+                mostrarAlerta("erro", erros.join(', '));
+                return;
+            }
 
-          // Remove máscara do preço antes de enviar
-          const precoInput = document.getElementById('preco');
-          const precoValor = precoInput.value.replace(/\D/g, '');
-          precoInput.value = (parseInt(precoValor, 10) / 100).toFixed(2);
+            // Remove a máscara do preço antes de enviar
+            const precoInput = document.getElementById('preco');
+            const precoValor = precoInput.value.replace(/\D/g, '');
+            precoInput.value = (parseInt(precoValor, 10) / 100).toFixed(2);
 
-          mostrarAlerta("sucesso", "Carro cadastrado com sucesso!");
-          this.submit(); // Envia o formulário se a validação passar
-      });
+            // Alerta de sucesso
+            mostrarAlerta("sucesso", "Carro cadastrado com sucesso!");
+
+            // Agora submete o formulário após a validação
+            form.submit();
+        });
 
     </script>
     

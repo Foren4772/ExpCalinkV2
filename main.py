@@ -221,19 +221,29 @@ async def criar_usuario(
         db.close()
 
 @app.get("/cadastrocarro", response_class=HTMLResponse)
-async def cadastro_carro_form(request: Request):
-    """
-    Exibe o formulário de cadastro de carro.
-    """
+async def cadastro_carro_form(request: Request, db=Depends(get_db)):
     nome_usuario = request.session.get("nome_usuario", None)
-    return templates.TemplateResponse("cadastrocarro.html", {"request": request, "nome_usuario": nome_usuario})
+
+    with db.cursor(pymysql.cursors.DictCursor) as cursor:
+        cursor.execute("""
+            SELECT modelo.id_modelo, modelo.nome AS modelo_nome, marca.nome AS marca_nome
+            FROM modelo
+            JOIN marca ON modelo.fk_id_marca = marca.id_marca
+            ORDER BY marca.nome, modelo.nome
+        """)
+        modelos = cursor.fetchall()
+
+    return templates.TemplateResponse("cadastrocarro.html", {
+        "request": request,
+        "nome_usuario": nome_usuario,
+        "modelos": modelos
+    })
 
 @app.post("/cadastrocarro", name="cadastrocarro_post")
 async def cadastrar_carro(
     request: Request,
-    marca: str = Form(...),
-    modelo: str = Form(...),
-    ano: int = Form(...),
+    modelo: int = Form(...),  # agora recebemos o id_modelo
+    ano: date = Form(...),
     placa: str = Form(...),
     renavam: str = Form(...),
     chassi: str = Form(...),
@@ -255,10 +265,10 @@ async def cadastrar_carro(
 
         with db.cursor() as cursor:
             sql = """
-                INSERT INTO Carro (Marca, Modelo, Ano, Placa, Renavam, Chassi, Cor, Motor, Potencia, Preco, Imagem) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(sql, (marca, modelo, ano, placa, renavam, chassi, cor, motor, potencia, preco, foto_bytes))
+    INSERT INTO Carro (fk_id_modelo, Ano, Placa, Renavam, Chassi, Cor, Motor, Potencia, Preco, Imagem, Descricao) 
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+"""
+            cursor.execute(sql, (modelo, ano, placa, renavam, chassi, cor, motor, potencia, preco, foto_bytes, descricao))
             db.commit()
 
         request.session["swal_message"] = {
