@@ -24,19 +24,13 @@ app.add_middleware(
 @app.middleware("http")
 async def clear_swal_messages(request: Request, call_next):
     # Mostra a sessão ANTES de qualquer coisa nesta requisição específica
-    print(f"DEBUG clear_swal_messages (INÍCIO): ID da Sessão (hash): {hash(str(request.session)) if 'session' in request.scope else 'N/A'}")
-    print(f"DEBUG clear_swal_messages (INÍCIO): Sessão ANTES de call_next: {dict(request.session) if 'session' in request.scope else 'Sessão não acessível ainda'}")
-
+    
     response = await call_next(request) # Processa a rota
-
-    # Mostra a sessão DEPOIS que a rota foi processada, mas ANTES de tentar limpar
-    print(f"DEBUG clear_swal_messages (MEIO): Sessão DEPOIS de call_next, ANTES de limpar: {dict(request.session)}")
 
     try:
         if "swal_message" in request.session:
-            print("DEBUG clear_swal_messages (MEIO): 'swal_message' ENCONTRADA. Tentando deletar...")
             del request.session["swal_message"]
-            print("DEBUG clear_swal_messages (FIM): 'swal_message' DELETADA da instância da sessão atual.")
+           
             # Para verificar se a modificação "pegou" na sessão atual:
             if "swal_message" not in request.session:
                 print("DEBUG clear_swal_messages (FIM): Confirmação - 'swal_message' NÃO está mais na sessão atual.")
@@ -61,7 +55,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "PUC@1234",
+    "password": "Senha@123",
     "database": "carlink"
 }
 
@@ -291,51 +285,61 @@ async def cadastrar_carro(
     finally:
         db.close()
 
-@app.get("/medListar", name="medListar", response_class=HTMLResponse)
-async def listar_medicos(request: Request, db=Depends(get_db)):
+@app.get("/usuariosListar", name="usuariosListar", response_class=HTMLResponse)
+async def listar_usuarios(request: Request, db=Depends(get_db)):
+    # Verifica se o usuário está logado
     if not request.session.get("user_logged_in"):
+        return RedirectResponse(url="/login", status_code=303)
+    
+    # Verifica se o usuário tem permissão de admin (opcional)
+    if request.session.get("cargo") != 1:
         return RedirectResponse(url="/", status_code=303)
 
     with db.cursor(pymysql.cursors.DictCursor) as cursor:
-        # Consulta SQL unindo Medico e Especialidade, ordenando por nome
+        # Consulta SQL para obter todos os usuários com informações de cargo
         sql = """
-            SELECT M.ID_Medico, M.CRM, M.Nome, E.Nome_Espec AS Especialidade,
-                   M.Foto, M.Dt_Nasc
-            FROM Medico AS M 
-            JOIN Especialidade AS E ON M.ID_Espec = E.ID_Espec
-            ORDER BY M.Nome
+            SELECT U.id_usuario, U.nome, U.genero, U.dataNascimento, U.cpf, 
+                   U.email, U.telefone, U.imagemPerfil, C.nome as cargo
+            FROM usuario AS U
+            LEFT JOIN cargo AS C ON U.cargo_id = C.id_cargo
+            ORDER BY U.nome
         """
         cursor.execute(sql)
-        medicos = cursor.fetchall()  # lista de dicts com dados dos médicos
+        usuarios = cursor.fetchall()
 
-    # Processa os dados (calcula idade e converte foto para base64 se necessário)
+    # Processa os dados (calcula idade e converte imagem para base64 se necessário)
     hoje = date.today()
-    for med in medicos:
-        # Calcula idade baseado em Dt_Nasc (formato date/datetime do MySQL)
-        dt_nasc = med["Dt_Nasc"]
-        if isinstance(dt_nasc, str):
-            # Se vier como string "YYYY-MM-DD", converte para date
-            ano, mes, dia = map(int, dt_nasc.split("-"))
-            dt_nasc = date(ano, mes, dia)
-        idade = hoje.year - dt_nasc.year
-        # Ajusta se aniversário ainda não ocorreu no ano corrente
-        if (dt_nasc.month, dt_nasc.day) > (hoje.month, hoje.day):
-            idade -= 1
-        med["idade"] = idade
-
-        # Converter foto blob para base64 (se houver)
-        if med["Foto"]:
-            med["Foto_base64"] = base64.b64encode(med["Foto"]).decode('utf-8')
+    for usuario in usuarios:
+        # Calcula idade baseado em dataNascimento
+        dt_nasc = usuario["dataNascimento"]
+        if dt_nasc:
+            if isinstance(dt_nasc, str):
+                # Se vier como string "YYYY-MM-DD", converte para date
+                ano, mes, dia = map(int, dt_nasc.split("-"))
+                dt_nasc = date(ano, mes, dia)
+            
+            idade = hoje.year - dt_nasc.year
+            # Ajusta se aniversário ainda não ocorreu no ano corrente
+            if (dt_nasc.month, dt_nasc.day) > (hoje.month, hoje.day):
+                idade -= 1
+            usuario["idade"] = idade
         else:
-            med["Foto_base64"] = None
+            usuario["idade"] = "N/A"
 
-    nome_usuario = request.session.get("nome_usuario", None)
+        # Converter imagemPerfil blob para base64 (se houver)
+        if usuario["imagemPerfil"]:
+            usuario["imagemPerfil_base64"] = base64.b64encode(usuario["imagemPerfil"]).decode('utf-8')
+        else:
+            usuario["imagemPerfil_base64"] = None
+
+    # Obtém informações da sessão
+    nome_usuario = request.session.get("nome_usuario", "Visitante")
     agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-    # Renderiza o template 'medListar.html' com os dados dos médicos
-    return templates.TemplateResponse("medListar.html", {
+    # Renderiza o template com os dados dos usuários
+    return templates.TemplateResponse("usuariosListar.html", {
         "request": request,
-        "medicos": medicos,
+        "usuarios": usuarios,
         "hoje": agora,
         "nome_usuario": nome_usuario
     })

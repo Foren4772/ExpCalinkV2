@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Carlink - Listagem de Usuários</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='imagens/favicon.png') }}" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="/static/css/customize.css" />
+    <link rel="stylesheet" href="/static/css/bootstrap.css" />
+  </head>
+
+  <body>
+    {% include 'geral/menu.html' %}
+
+    <div class="container-fluid mt-5 pt-4">
+      <div class="row">
+        <div class="col-12">
+          <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+              <div class="d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Listagem de Usuários</h2>
+                <small>Acesso em: {{ hoje }}</small>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead class="table-light">
+                    <tr>
+                      <th width="5%">ID</th>
+                      <th width="10%">Foto</th>
+                      <th width="15%">Nome</th>
+                      <th width="10%">Gênero</th>
+                      <th width="10%">Nascimento</th>
+                      <th width="12%">CPF</th>
+                      <th width="15%">Email</th>
+                      <th width="10%">Telefone</th>
+                      <th width="8%">Cargo</th>
+                      <th width="5%"></th>
+                      <th width="5%"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for usuario in usuarios %}
+                    <tr>
+                      <td>{{ usuario.id_usuario }}</td>
+                      <td>
+                        {% if usuario.imagemcargo %}
+                        <img
+                          class="rounded-circle img-thumbnail"
+                          src="data:image/png;base64,{{ usuario.imagemcargo }}"
+                          alt="Foto cargo"
+                          width="50"
+                          height="50"
+                        />
+                        {% else %}
+                        <img
+                          class="rounded-circle img-thumbnail"
+                          src="/static/imagens/pessoa.jpg"
+                          alt="Sem foto"
+                          width="50"
+                          height="50"
+                        />
+                        {% endif %}
+                      </td>
+                      <td>{{ usuario.nome }}</td>
+                      <td>{{ usuario.genero }}</td>
+                      <td>{{ usuario.dataNascimento.strftime('%d/%m/%Y') if usuario.dataNascimento }}</td>
+                      <td>{{ usuario.cpf }}</td>
+                      <td>{{ usuario.email }}</td>
+                      <td>{{ usuario.telefone }}</td>
+                      <td>
+                        {% if usuario.cargo_id == 1 %}
+                        <span class="badge bg-primary">Admin</span>
+                        {% elif usuario.cargo_id == 2 %}
+                        <span class="badge bg-success">Usuário</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Indefinido</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if request.session.get("cargo") == 1 %}
+                        <a
+                          href="/usuario/editar?id={{ usuario.id_usuario }}"
+                          class="btn btn-sm btn-outline-primary"
+                          title="Editar Usuário"
+                        >
+                          <i class="fas fa-edit"></i>
+                        </a>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if request.session.get("cargo") == 1 %}
+                        <a
+                          href="/usuario/excluir?id={{ usuario.id_usuario }}"
+                          class="btn btn-sm btn-outline-danger"
+                          title="Excluir Usuário"
+                        >
+                          <i class="fas fa-trash-alt"></i>
+                        </a>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card-footer text-muted">Total de usuários: {{ usuarios|length }}</div>
+          </div>
+        </div>
+      </div>
+
+      {% include 'geral/sobre.html' %}
+    </div>
+
+    {% include 'geral/rodape.html' %}
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

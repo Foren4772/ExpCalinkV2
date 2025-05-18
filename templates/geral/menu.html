@@ -39,7 +39,8 @@
     <div class="d-flex align-items-center">
       {% if nome_usuario %}
       <span class="navbar-text me-2">Olá, {{ nome_usuario }}!</span>
-      <a class="btn btn-outline-danger" href="/logout">Sair</a>
+      <a class="btn btn-outline-primary ml-2" href="/perfil">Meu Perfil</a>
+      <a class="btn btn-outline-danger ml-2" href="/logout">Sair</a>
       {% else %}
       <a class="btn btn-outline-dark me-2" href="/cadastro-usuario">Cadastrar</a>
       <a class="btn btn-dark ml-2" href="/login">Entrar</a>
