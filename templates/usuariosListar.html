@@ -6,8 +6,9 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', path='imagens/favicon.png') }}" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-    <link rel="stylesheet" href="/static/css/customize.css" />
+    <link rel="stylesheet" href="/static/css/custom.css" />
     <link rel="stylesheet" href="/static/css/bootstrap.css" />
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='imagens/favicon.png') }}" />
   </head>
 
   <body>
@@ -46,14 +47,15 @@
                     <tr>
                       <td>{{ usuario.id_usuario }}</td>
                       <td>
-                        {% if usuario.imagemcargo %}
+                        {% if usuario.imagemPerfil %}
                         <img
                           class="rounded-circle img-thumbnail"
-                          src="data:image/png;base64,{{ usuario.imagemcargo }}"
-                          alt="Foto cargo"
+                          src="{{ usuario.imagemPerfil_base64 }}"
+                          alt="Foto do usuário"
                           width="50"
                           height="50"
                         />
+
                         {% else %}
                         <img
                           class="rounded-circle img-thumbnail"
@@ -72,13 +74,18 @@
                       <td>{{ usuario.telefone }}</td>
                       <td>
                         {% if usuario.cargo_id == 1 %}
-                        <span class="badge bg-primary">Admin</span>
+                        <span class="badge">Admin</span>
                         {% elif usuario.cargo_id == 2 %}
-                        <span class="badge bg-success">Usuário</span>
+                        <span class="badge">Gerente</span>
+                        {% elif usuario.cargo_id == 3 %}
+                        <span class="badge">Atendente</span>
+                        {% elif usuario.cargo_id == 4 %}
+                        <span class="badge">Usuário</span>
                         {% else %}
-                        <span class="badge bg-secondary">Indefinido</span>
+                        <span class="badge">Indefinido</span>
                         {% endif %}
                       </td>
+
                       <td>
                         {% if request.session.get("cargo") == 1 %}
                         <a

@@ -299,11 +299,12 @@ async def listar_usuarios(request: Request, db=Depends(get_db)):
         # Consulta SQL para obter todos os usuários com informações de cargo
         sql = """
             SELECT U.id_usuario, U.nome, U.genero, U.dataNascimento, U.cpf, 
-                   U.email, U.telefone, U.imagemPerfil, C.nome as cargo
+            U.email, U.telefone, U.imagemPerfil, U.cargo_id, C.nome AS cargo
             FROM usuario AS U
             LEFT JOIN cargo AS C ON U.cargo_id = C.id_cargo
             ORDER BY U.nome
-        """
+            """
+
         cursor.execute(sql)
         usuarios = cursor.fetchall()
 
@@ -328,7 +329,7 @@ async def listar_usuarios(request: Request, db=Depends(get_db)):
 
         # Converter imagemPerfil blob para base64 (se houver)
         if usuario["imagemPerfil"]:
-            usuario["imagemPerfil_base64"] = base64.b64encode(usuario["imagemPerfil"]).decode('utf-8')
+            usuario["imagemPerfil_base64"] = "data:image/png;base64," + base64.b64encode(usuario["imagemPerfil"]).decode('utf-8')
         else:
             usuario["imagemPerfil_base64"] = None
 
