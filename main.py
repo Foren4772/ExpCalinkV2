@@ -16,7 +16,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key="carlink",
     session_cookie="carlink_session",
-    max_age = 60,  
+    max_age = 6000,  
     same_site="lax",
     https_only=False
 )
