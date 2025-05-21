@@ -2,47 +2,31 @@ import pymysql
 import base64
 
 from mangum import Mangum
-from fastapi import FastAPI, Request, Form, File, UploadFile, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, Form, File, UploadFile, Depends, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import date, datetime
+from typing import Optional, List, Dict, Any
 
 app = FastAPI()
 
 # Configuração de sessão
 app.add_middleware(
     SessionMiddleware,
-    secret_key="carlink",
+    secret_key="carlink", # ATENÇÃO: Em produção, use uma chave forte e segura!
     session_cookie="carlink_session",
-    max_age = 6000,  
+    max_age = 6000,
     same_site="lax",
     https_only=False
 )
 
 @app.middleware("http")
 async def clear_swal_messages(request: Request, call_next):
-    # Mostra a sessão ANTES de qualquer coisa nesta requisição específica
-    
-    response = await call_next(request) # Processa a rota
-
-    try:
-        if "swal_message" in request.session:
-            del request.session["swal_message"]
-           
-            # Para verificar se a modificação "pegou" na sessão atual:
-            if "swal_message" not in request.session:
-                print("DEBUG clear_swal_messages (FIM): Confirmação - 'swal_message' NÃO está mais na sessão atual.")
-            else:
-                print("DEBUG clear_swal_messages (FIM): ALERTA - 'swal_message' AINDA está na sessão atual APÓS del!")
-        else:
-            print("DEBUG clear_swal_messages (FIM): 'swal_message' NÃO foi encontrada na sessão para deletar.")
-    except Exception as e:
-        print(f"AVISO clear_swal_messages: Exceção ao tentar limpar 'swal_message': {e}")
-
-    # Mostra a sessão FINAL, que deveria ser salva pelo SessionMiddleware
-    print(f"DEBUG clear_swal_messages (FIM): Sessão FINAL a ser persistida: {dict(request.session)}")
+    # Esta função de middleware não precisa mais limpar swal_message ativamente,
+    # pois a lógica de pop() já está nas rotas que consomem a mensagem.
+    response = await call_next(request)
     return response
 
 # Configuração de arquivos estáticos
@@ -55,27 +39,34 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "Senha@123",
+    "password": "PUC@1234",
     "database": "carlink"
 }
 
 # Função para obter conexão com MySQL
 def get_db():
-    return pymysql.connect(**DB_CONFIG)
+    connection = None
+    try:
+        connection = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
+        yield connection
+    finally:
+        if connection:
+            connection.close()
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    # Pega o nome do usuário da sessão. Será None se não estiver logado ou se a chave não existir.
     nome_usuario = request.session.get("nome_usuario", None)
     user_is_logged_in = bool(nome_usuario)
-
-    print(f"DEBUG: Rota '/', nome_usuario da sessão: {nome_usuario}") # Para depuração
+    # A mensagem será passada APENAS se for definida por outra rota que redirecione para cá.
+    # swal_message = request.session.pop("swal_message", None) # Já foi movido para rotas específicas
 
     return templates.TemplateResponse("index.html", {
         "request": request,
-        "nome_usuario": nome_usuario, # ESSENCIAL para o menu.html funcionar como esperado
-        "user_logged_in": user_is_logged_in # Opcional, se index.html também usar
-    }) 
+        "nome_usuario": nome_usuario,
+        "user_logged_in": user_is_logged_in,
+        "swal_message": request.session.pop("swal_message", None) # Pega e remove a mensagem aqui
+    })
+
 
 @app.get("/login", response_class=HTMLResponse)
 async def mostrar_login(request: Request):
@@ -91,15 +82,13 @@ async def login(
 ):
     try:
         with db.cursor() as cursor:
-
             cursor.execute("SELECT * FROM usuario WHERE email = %s AND senha = MD5(%s)", (Login, Senha))
             user = cursor.fetchone()
 
             if user:
                 request.session["user_logged_in"] = True
-                request.session["nome_usuario"] = user[1]
-                request.session["cargo"] = user[8]
-                print(user[1])
+                request.session["nome_usuario"] = user["nome"]
+                request.session["cargo"] = user["cargo_id"]
                 return RedirectResponse(url="/", status_code=303)
             else:
                 request.session["swal_message"] = {
@@ -110,16 +99,15 @@ async def login(
                 }
                 return RedirectResponse(url="/login", status_code=303)
     finally:
-        db.close()
+        pass
 
 @app.get("/logout")
 async def logout(request: Request):
-    # Encerra a sessão do usuário e retorna à página inicial.
-    request.session.clear()  # remove todos os dados de sessão
+    request.session.clear()
     return RedirectResponse(url="/", status_code=303)
 
 @app.post("/cadastro", name="cadastro")
-async def cadastrar_usuario(
+async def cadastrar_usuario_index(
     request: Request,
     nome: str = Form(...),
     Login: str = Form(...),
@@ -129,96 +117,310 @@ async def cadastrar_usuario(
 ):
     try:
         with db.cursor() as cursor:
-
-            cursor.execute("SELECT ID_Usuario FROM Usuario WHERE Login = %s", (Login,))
+            cursor.execute("SELECT id_usuario FROM usuario WHERE email = %s", (Login,))
             if cursor.fetchone():
-                request.session["nao_autenticado"] = True
-                request.session["mensagem_header"] = "Cadastro"
-                request.session["mensagem"] = "Erro: Este login já está em uso!"
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Cadastro",
+                    "text": "Erro: Este e-mail já está em uso!",
+                    "confirmButtonColor": '#d33'
+                }
                 return RedirectResponse(url="/", status_code=303)
 
-            sql = "INSERT INTO Usuario (Nome, Celular, Login, Senha) VALUES (%s, %s, %s, MD5(%s))"
-            cursor.execute(sql, (nome, Celular, Login, Senha1))
+            sql = "INSERT INTO Usuario (nome, telefone, email, senha, cargo_id) VALUES (%s, %s, %s, MD5(%s), %s)"
+            cursor.execute(sql, (nome, Celular, Login, Senha1, 2)) # cargo_id = 2 para usuário comum
             db.commit()
 
-            request.session["nao_autenticado"] = True
-            request.session["mensagem_header"] = "Cadastro"
-            request.session["mensagem"] = "Registro cadastrado com sucesso! Você já pode realizar login."
+            # O LAST_INSERT_ID() é específico do MySQL para obter o último ID inserido
+            cursor.execute("SELECT LAST_INSERT_ID() as id_usuario")
+            new_user_id = cursor.fetchone()['id_usuario']
+
+            request.session["swal_message"] = {
+                "icon": "success",
+                "title": "Cadastro",
+                "text": f"Registro cadastrado com sucesso! Seu ID de usuário é: {new_user_id}. Você já pode realizar login.",
+                "confirmButtonColor": '#303030'
+            }
             return RedirectResponse(url="/", status_code=303)
 
     except Exception as e:
-        request.session["nao_autenticado"] = True
-        request.session["mensagem_header"] = "Cadastro"
-        request.session["mensagem"] = f"Erro ao cadastrar: {str(e)}"
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Cadastro",
+            "text": f"Erro ao cadastrar: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
         return RedirectResponse(url="/", status_code=303)
 
     finally:
-        db.close()
+        pass
 
+# Rota para exibir o formulário de cadastro de usuário (ACESSO LIVRE)
 @app.get("/cadastro-usuario", response_class=HTMLResponse)
-async def cadastro_usuario(request: Request):
-    request.session.pop("login_error", None)
-    return templates.TemplateResponse("cadastro-usuario.html", {"request": request})
+async def cadastro_usuario_form(request: Request, db=Depends(get_db)):
+    nome_usuario = request.session.get("nome_usuario", None)
+    # REMOVIDA A RESTRIÇÃO DE CARGO AQUI. Qualquer um pode acessar esta página agora.
+    # if request.session.get("cargo") != 1:
+    #     request.session["swal_message"] = {
+    #         "icon": "warning",
+    #         "title": "Acesso Negado",
+    #         "text": "Você não tem permissão para acessar esta página.",
+    #         "confirmButtonColor": '#303030'
+    #     }
+    #     return RedirectResponse(url="/", status_code=303)
 
+    swal_message = request.session.pop("swal_message", None)
+
+    cargos = []
+    # Se esta rota é para novos usuários gerais, eles não devem escolher o cargo.
+    # Você pode remover a busca por cargos ou filtrar para mostrar apenas cargos permitidos para auto-cadastro.
+    # Por exemplo, se só puderem se cadastrar como 'usuário comum', não precise carregar os cargos.
+    # Se for uma página de cadastro *mais completa* onde o admin também pode usar para cadastrar
+    # outros admins, aí a lista de cargos faz sentido, mas o default seria o cargo comum.
+    try:
+        with db.cursor() as cursor:
+            # Buscar cargos para exibição (se necessário, ou remover)
+            cursor.execute("SELECT id_cargo, nome FROM cargo ORDER BY nome")
+            cargos = cursor.fetchall()
+    except Exception as e:
+        print(f"Erro ao buscar cargos: {e}")
+
+    return templates.TemplateResponse("cadastro-usuario.html", {
+        "request": request,
+        "nome_usuario": nome_usuario,
+        "swal_message": swal_message,
+        "cargos": cargos # Mantenho a lista de cargos, mas pense se faz sentido para um usuário comum
+    })
+
+
+# Rota para processar o cadastro de usuário (ACESSO LIVRE, atribuindo cargo padrão)
 @app.post("/cadastro-usuario", name="criar_usuario")
 async def criar_usuario(
     request: Request,
     nome: str = Form(...),
-    genero: str = Form(...),
-    dataNascimento: str = Form(...),
+    genero: Optional[str] = Form(None),
+    dataNascimento: Optional[str] = Form(None),
     cpf: str = Form(...),
     email: str = Form(...),
-    telefone: str = Form(...),
+    telefone: Optional[str] = Form(None),
     senha: str = Form(...),
-    cargo_id: int = Form(None),
-    imagemPerfil: UploadFile = File(None),  # Aqui: espera arquivo via multipart/form-data
+    cargo_id: Optional[int] = Form(2), # Defino o default como 2 (usuário comum)
+    imagemPerfil: UploadFile = File(None),
     db = Depends(get_db)
 ):
+    # REMOVIDA A RESTRIÇÃO DE CARGO AQUI. Qualquer um pode enviar este formulário.
+    # if request.session.get("cargo") != 1:
+    #     request.session["swal_message"] = {
+    #         "icon": "warning",
+    #         "title": "Acesso Negado",
+    #         "text": "Você não tem permissão para realizar esta operação.",
+    #         "confirmButtonColor": '#303030'
+    #     }
+    #     return RedirectResponse(url="/", status_code=303)
+
     try:
         with db.cursor() as cursor:
             cursor.execute("SELECT id_usuario FROM usuario WHERE cpf = %s", (cpf,))
             if cursor.fetchone():
-                request.session["nao_autenticado"] = True
-                request.session["mensagem_header"] = "Cadastro de Usuário"
-                request.session["mensagem"] = "Erro: Este CPF já está cadastrado!"
-                return RedirectResponse(url="/usuario/form", status_code=303)
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Cadastro de Usuário",
+                    "text": "Erro: Este CPF já está cadastrado!",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/cadastro-usuario", status_code=303)
+            
+            cursor.execute("SELECT id_usuario FROM usuario WHERE email = %s", (email,))
+            if cursor.fetchone():
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Cadastro de Usuário",
+                    "text": "Erro: Este e-mail já está cadastrado!",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/cadastro-usuario", status_code=303)
+
 
             imagem_bytes = None
-            if imagemPerfil:
-                imagem_bytes = await imagemPerfil.read()
+            if imagem and imagem.filename:
+                imagem_bytes = await imagem.read()
 
-            data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+            data_nascimento_sql = None
+            if dataNascimento:
+                data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+
+            # Garante que o cargo_id seja 2 (usuário comum) se não for admin logado
+            # ou se o campo cargo_id não for enviado pelo formulário.
+            # Se você quer que um ADMIN possa criar outros admins por essa tela,
+            # então você precisaria de uma lógica mais complexa aqui, por exemplo:
+            # se request.session.get("cargo") == 1 e cargo_id for enviado, use o cargo_id enviado.
+            # Caso contrário, force cargo_id=2.
+            # Para simplificar, vou manter que o cargo_id será 2 para qualquer cadastro nesta rota,
+            # a menos que o admin, ao usar esta mesma tela, explicitamente envie outro cargo_id.
+            # Considerando que a restrição de admin foi removida, o default é 2.
+            final_cargo_id = cargo_id if request.session.get("cargo") == 1 else 2
+
 
             sql = """
-                INSERT INTO usuario 
+                INSERT INTO usuario
                 (nome, genero, dataNascimento, cpf, email, telefone, senha, cargo_id, imagemPerfil)
                 VALUES (%s, %s, %s, %s, %s, %s, MD5(%s), %s, %s)
             """
             cursor.execute(sql, (
                 nome, genero, data_nascimento_sql, cpf, email,
-                telefone, senha, cargo_id, imagem_bytes
+                telefone, senha, final_cargo_id, imagem_bytes # Usar final_cargo_id
             ))
             db.commit()
 
-            request.session["nao_autenticado"] = True
-            request.session["mensagem_header"] = "Cadastro de Usuário"
-            request.session["mensagem"] = "Usuário cadastrado com sucesso!"
-            return RedirectResponse(url="/usuario/form", status_code=303)
+            # Captura o ID do usuário recém-criado
+            cursor.execute("SELECT LAST_INSERT_ID() as id_usuario")
+            new_user_id = cursor.fetchone()['id_usuario']
+
+            request.session["swal_message"] = {
+                "icon": "success",
+                "title": "Cadastro de Usuário",
+                "text": f"Usuário cadastrado com sucesso! Seu ID é: {new_user_id}.",
+                "confirmButtonColor": '#303030'
+            }
+            return RedirectResponse(url="/cadastro-usuario", status_code=303) # Redireciona para a mesma página
 
     except Exception as e:
-        request.session["nao_autenticado"] = True
-        request.session["mensagem_header"] = "Cadastro de Usuário"
-        request.session["mensagem"] = f"Erro ao cadastrar usuário: {str(e)}"
-        return RedirectResponse(url="/usuario/form", status_code=303)
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Cadastro de Usuário",
+            "text": f"Erro ao cadastrar usuário: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/cadastro-usuario", status_code=303)
 
     finally:
-        db.close()
+        pass
 
+# --- Rota de Cadastro de Carro (GET) - ALTERADA PARA REDIRECIONAR PARA /vender ---
+@app.get("/cadastro-usuario", response_class=HTMLResponse)
+async def cadastro_usuario_form(request: Request, db=Depends(get_db)):
+    nome_usuario = request.session.get("nome_usuario", None)
+    
+    swal_message = request.session.pop("swal_message", None)
+
+    cargos = []
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("SELECT id_cargo, nome FROM cargo ORDER BY nome")
+            cargos = cursor.fetchall()
+    except Exception as e:
+        print(f"Erro ao buscar cargos: {e}")
+
+    return templates.TemplateResponse("cadastro-usuario.html", {
+        "request": request,
+        "nome_usuario": nome_usuario,
+        "swal_message": swal_message,
+        "cargos": cargos
+    })
+
+
+@app.post("/cadastro-usuario", name="criar_usuario")
+async def criar_usuario(
+    request: Request,
+    nome: str = Form(...),
+    genero: Optional[str] = Form(None),
+    dataNascimento: Optional[str] = Form(None),
+    cpf: str = Form(...),
+    email: str = Form(...),
+    telefone: Optional[str] = Form(None),
+    senha: str = Form(...),
+    cargo_id: Optional[int] = Form(2), # Default para usuário comum
+    imagemPerfil: UploadFile = File(None), # Parâmetro do arquivo de imagem
+    db = Depends(get_db)
+):
+    try:
+        with db.cursor() as cursor:
+            # Validação de CPF e E-mail duplicados
+            cursor.execute("SELECT id_usuario FROM usuario WHERE cpf = %s", (cpf,))
+            if cursor.fetchone():
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Cadastro de Usuário",
+                    "text": "Erro: Este CPF já está cadastrado!",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/cadastro-usuario", status_code=303)
+            
+            cursor.execute("SELECT id_usuario FROM usuario WHERE email = %s", (email,))
+            if cursor.fetchone():
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Cadastro de Usuário",
+                    "text": "Erro: Este e-mail já está cadastrado!",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/cadastro-usuario", status_code=303)
+
+            # Lida com o upload da imagem
+            imagem_bytes = None
+            # CORREÇÃO: Usando 'imagemPerfil' como nome da variável
+            if imagemPerfil and imagemPerfil.filename and imagemPerfil.size > 0:
+                imagem_bytes = await imagemPerfil.read()
+
+            data_nascimento_sql = None
+            if dataNascimento:
+                data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+
+            # Define o cargo_id (mantém o default 2 se não for admin logado)
+            final_cargo_id = cargo_id if request.session.get("cargo") == 1 else 2
+
+            sql = """
+                INSERT INTO usuario
+                (nome, genero, dataNascimento, cpf, email, telefone, senha, cargo_id, imagemPerfil)
+                VALUES (%s, %s, %s, %s, %s, %s, MD5(%s), %s, %s)
+            """
+            cursor.execute(sql, (
+                nome, genero, data_nascimento_sql, cpf, email,
+                telefone, senha, final_cargo_id, imagem_bytes
+            ))
+            db.commit()
+
+            cursor.execute("SELECT LAST_INSERT_ID() as id_usuario")
+            new_user_id = cursor.fetchone()['id_usuario']
+
+            request.session["swal_message"] = {
+                "icon": "success",
+                "title": "Cadastro de Usuário",
+                "text": f"Usuário cadastrado com sucesso! Seu ID é: {new_user_id}.",
+                "confirmButtonColor": '#303030'
+            }
+            return RedirectResponse(url="/cadastro-usuario", status_code=303) # Redireciona para a mesma página
+
+    except Exception as e:
+        # Agora o erro será mais descritivo se não for o problema da imagem.
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Cadastro de Usuário",
+            "text": f"Erro ao cadastrar usuário: {str(e)}", # Captura a mensagem de erro real
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/cadastro-usuario", status_code=303)
+
+    finally:
+        pass
+
+# --- Rota para a página /vender (NOVA OU ATUALIZADA) ---
+@app.get("/vender", response_class=HTMLResponse)
+async def vender_carro_intro(request: Request):
+    return templates.TemplateResponse("vender.html", {"request": request})
+
+
+
+# --- ROTA PARA CADASTRO DE CARRO (NOVA OU CORRIGIDA) ---
 @app.get("/cadastrocarro", response_class=HTMLResponse)
 async def cadastro_carro_form(request: Request, db=Depends(get_db)):
     nome_usuario = request.session.get("nome_usuario", None)
 
-    with db.cursor(pymysql.cursors.DictCursor) as cursor:
+    # VERIFICA SE ESTÁ LOGADO
+    if not nome_usuario:
+        return RedirectResponse(url="/", status_code=302)
+
+    with db.cursor() as cursor:
         cursor.execute("""
             SELECT modelo.id_modelo, modelo.nome AS modelo_nome, marca.nome AS marca_nome
             FROM modelo
@@ -227,16 +429,20 @@ async def cadastro_carro_form(request: Request, db=Depends(get_db)):
         """)
         modelos = cursor.fetchall()
 
+    swal_message = request.session.pop("swal_message", None)  # pega e remove da sessão
+
     return templates.TemplateResponse("cadastrocarro.html", {
         "request": request,
         "nome_usuario": nome_usuario,
-        "modelos": modelos
+        "modelos": modelos,
+        "swal_message": swal_message  # passa para o template
     })
+
 
 @app.post("/cadastrocarro", name="cadastrocarro_post")
 async def cadastrar_carro(
     request: Request,
-    modelo: int = Form(...),  # agora recebemos o id_modelo
+    modelo: int = Form(...),
     ano: date = Form(...),
     placa: str = Form(...),
     renavam: str = Form(...),
@@ -247,22 +453,28 @@ async def cadastrar_carro(
     preco: float = Form(...),
     descricao: str = Form(...),
     imagem: UploadFile = File(None),
-    db: pymysql.Connection = Depends(get_db)  # Use type hinting for clarity
+    db: pymysql.Connection = Depends(get_db)
 ):
     """
     Processa o envio do formulário de cadastro de carro e salva os dados no banco de dados.
     """
     try:
-        #foto_bytes: Optional[bytes] = None
+        foto_bytes = None
         if imagem and imagem.filename:
             foto_bytes = await imagem.read()
 
         with db.cursor() as cursor:
             sql = """
-    INSERT INTO Carro (fk_id_modelo, Ano, Placa, Renavam, Chassi, Cor, Motor, Potencia, Preco, Imagem, Descricao) 
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-"""
-            cursor.execute(sql, (modelo, ano, placa, renavam, chassi, cor, motor, potencia, preco, foto_bytes, descricao))
+                INSERT INTO Carro (
+                    fk_id_modelo, Ano, Placa, Renavam, Chassi, Cor, Motor,
+                    Potencia, Preco, Imagem, Descricao
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(sql, (
+                modelo, ano, placa, renavam, chassi, cor, motor,
+                potencia, preco, foto_bytes, descricao
+            ))
             db.commit()
 
         request.session["swal_message"] = {
@@ -285,20 +497,129 @@ async def cadastrar_carro(
     finally:
         db.close()
 
+@app.get("/comprar", response_class=HTMLResponse)
+async def comprar_carro(
+    request: Request,
+    marca_id: Optional[int] = None,
+    modelo_id: Optional[int] = None,
+    ano_min: Optional[int] = None,
+    preco_max: Optional[str] = None,
+    db: pymysql.Connection = Depends(get_db)
+):
+    nome_usuario = request.session.get("nome_usuario", None)
+
+    query_params = []
+    sql_where = []
+
+    preco_max_float = None
+    selected_preco_max_display = preco_max
+    if preco_max:
+        preco_max_clean = preco_max.replace("R$", "").replace(".", "").replace(",", ".").strip()
+        try:
+            preco_max_float = float(preco_max_clean)
+            sql_where.append("Preco <= %s")
+            query_params.append(preco_max_float)
+        except ValueError:
+            pass
+
+    if marca_id:
+        sql_where.append("marca.id_marca = %s")
+        query_params.append(marca_id)
+
+    if modelo_id:
+        sql_where.append("modelo.id_modelo = %s")
+        query_params.append(modelo_id)
+
+    if ano_min:
+        sql_where.append("Ano >= %s")
+        query_params.append(ano_min)
+
+    sql_base = """
+        SELECT
+            carro.id_carro,
+            marca.nome AS marca_nome,
+            modelo.nome AS modelo_nome,
+            carro.Ano,
+            carro.Cor,
+            carro.Potencia,
+            carro.Preco,
+            carro.Descricao,
+            carro.Imagem
+        FROM
+            Carro AS carro
+        JOIN
+            Modelo AS modelo ON carro.fk_id_modelo = modelo.id_modelo
+        JOIN
+            Marca AS marca ON modelo.fk_id_marca = marca.id_marca
+    """
+    if sql_where:
+        sql_base += " WHERE " + " AND ".join(sql_where)
+    sql_base += " ORDER BY carro.Ano DESC, carro.Preco ASC"
+
+    carros = []
+    marcas = []
+    modelos_filtrados = []
+
+    with db.cursor() as cursor:
+        cursor.execute(sql_base, tuple(query_params))
+        carros_db = cursor.fetchall()
+
+        for carro in carros_db:
+            if carro['Imagem']:
+                if isinstance(carro['Imagem'], bytearray):
+                    carro['Imagem'] = bytes(carro['Imagem'])
+                carro['Imagem_base64'] = base64.b64encode(carro['Imagem']).decode('utf-8')
+            else:
+                carro['Imagem_base64'] = None
+
+            carros.append(carro)
+
+        cursor.execute("SELECT id_marca, nome FROM marca ORDER BY nome")
+        marcas = cursor.fetchall()
+
+        if marca_id:
+            cursor.execute("SELECT id_modelo, nome FROM modelo WHERE fk_id_marca = %s ORDER BY nome", (marca_id,))
+            modelos_filtrados = cursor.fetchall()
+
+    swal_message = request.session.pop("swal_message", None) # Pega e remove a mensagem
+
+    return templates.TemplateResponse("comprar.html", {
+        "request": request,
+        "nome_usuario": nome_usuario,
+        "carros": carros,
+        "marcas": marcas,
+        "modelos_filtrados": modelos_filtrados,
+        "selected_marca_id": marca_id,
+        "selected_modelo_id": modelo_id,
+        "selected_ano_min": ano_min,
+        "selected_preco_max_display": selected_preco_max_display,
+        "swal_message": swal_message # Passa a mensagem para o template
+    })
+
+
 @app.get("/usuariosListar", name="usuariosListar", response_class=HTMLResponse)
 async def listar_usuarios(request: Request, db=Depends(get_db)):
-    # Verifica se o usuário está logado
     if not request.session.get("user_logged_in"):
-        return RedirectResponse(url="/login", status_code=303)
-    
-    # Verifica se o usuário tem permissão de admin (opcional)
-    if request.session.get("cargo") != 1:
+        request.session["swal_message"] = {
+            "icon": "warning",
+            "title": "Login Necessário",
+            "text": "Você precisa estar logado para acessar esta página.",
+            "confirmButtonColor": '#303030'
+        }
         return RedirectResponse(url="/", status_code=303)
 
-    with db.cursor(pymysql.cursors.DictCursor) as cursor:
-        # Consulta SQL para obter todos os usuários com informações de cargo
+    if request.session.get("cargo") != 1:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você não tem permissão para visualizar esta página.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
+
+    with db.cursor() as cursor:
         sql = """
-            SELECT U.id_usuario, U.nome, U.genero, U.dataNascimento, U.cpf, 
+            SELECT U.id_usuario, U.nome, U.genero, U.dataNascimento, U.cpf,
             U.email, U.telefone, U.imagemPerfil, U.cargo_id, C.nome AS cargo
             FROM usuario AS U
             LEFT JOIN cargo AS C ON U.cargo_id = C.id_cargo
@@ -308,64 +629,77 @@ async def listar_usuarios(request: Request, db=Depends(get_db)):
         cursor.execute(sql)
         usuarios = cursor.fetchall()
 
-    # Processa os dados (calcula idade e converte imagem para base64 se necessário)
     hoje = date.today()
     for usuario in usuarios:
-        # Calcula idade baseado em dataNascimento
         dt_nasc = usuario["dataNascimento"]
         if dt_nasc:
             if isinstance(dt_nasc, str):
-                # Se vier como string "YYYY-MM-DD", converte para date
                 ano, mes, dia = map(int, dt_nasc.split("-"))
                 dt_nasc = date(ano, mes, dia)
-            
+
             idade = hoje.year - dt_nasc.year
-            # Ajusta se aniversário ainda não ocorreu no ano corrente
             if (dt_nasc.month, dt_nasc.day) > (hoje.month, hoje.day):
                 idade -= 1
             usuario["idade"] = idade
         else:
             usuario["idade"] = "N/A"
 
-        # Converter imagemPerfil blob para base64 (se houver)
         if usuario["imagemPerfil"]:
+            if isinstance(usuario["imagemPerfil"], bytearray):
+                usuario["imagemPerfil"] = bytes(usuario["imagemPerfil"])
             usuario["imagemPerfil_base64"] = "data:image/png;base64," + base64.b64encode(usuario["imagemPerfil"]).decode('utf-8')
         else:
             usuario["imagemPerfil_base64"] = None
 
-    # Obtém informações da sessão
     nome_usuario = request.session.get("nome_usuario", "Visitante")
+    swal_message = request.session.pop("swal_message", None)
     agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-    # Renderiza o template com os dados dos usuários
     return templates.TemplateResponse("usuariosListar.html", {
         "request": request,
         "usuarios": usuarios,
         "hoje": agora,
-        "nome_usuario": nome_usuario
+        "nome_usuario": nome_usuario,
+        "swal_message": swal_message
     })
 
 @app.get("/medIncluir", response_class=HTMLResponse)
 async def medIncluir(request: Request, db=Depends(get_db)):
     if not request.session.get("user_logged_in"):
+        request.session["swal_message"] = {
+            "icon": "warning",
+            "title": "Login Necessário",
+            "text": "Você precisa estar logado para acessar esta página.",
+            "confirmButtonColor": '#303030'
+        }
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("cargo") != "admin":
-        return RedirectResponse(url="/medListar", status_code=303)
+    if request.session.get("cargo") != 1:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você não tem permissão para acessar esta página.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
 
-    # Obter especialidades do banco para o combo
-    with db.cursor(pymysql.cursors.DictCursor) as cursor:
-        cursor.execute("SELECT ID_Espec, Nome_Espec FROM Especialidade")
-        especialidades = cursor.fetchall()
-    db.close()
+    especialidades = []
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("SELECT ID_Espec, Nome_Espec FROM Especialidade")
+            especialidades = cursor.fetchall()
+    except Exception as e:
+        print(f"Erro ao buscar especialidades: {e}")
 
-    # Dados para o template (incluindo data/hora e nome do usuário)
     nome_usuario = request.session.get("nome_usuario", None)
     agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    swal_message = request.session.pop("swal_message", None)
+
     return templates.TemplateResponse("medIncluir.html", {
         "request": request,
         "especialidades": especialidades,
         "hoje": agora,
-        "nome_usuario": nome_usuario
+        "nome_usuario": nome_usuario,
+        "swal_message": swal_message
     })
 
 @app.post("/medIncluir_exe")
@@ -374,14 +708,26 @@ async def medIncluir_exe(
     Nome: str = Form(...),
     CRM: str = Form(...),
     Especialidade: str = Form(...),
-    DataNasc: str = Form(None),
+    DataNasc: Optional[str] = Form(None),
     Imagem: UploadFile = File(None),
     db=Depends(get_db)
 ):
     if not request.session.get("user_logged_in"):
+        request.session["swal_message"] = {
+            "icon": "warning",
+            "title": "Login Necessário",
+            "text": "Você precisa estar logado para acessar esta página.",
+            "confirmButtonColor": '#303030'
+        }
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("cargo") != "admin":
-        return RedirectResponse(url="/medListar", status_code=303)
+    if request.session.get("cargo") != 1:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você não tem permissão para realizar esta operação.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
 
     foto_bytes = None
     if Imagem and Imagem.filename:
@@ -394,115 +740,185 @@ async def medIncluir_exe(
             cursor.execute(sql, (Nome, CRM, Especialidade, DataNasc, foto_bytes))
             db.commit()
 
-        request.session["mensagem_header"] = "Inclusão de Novo Médico"
-        request.session["mensagem"] = "Registro cadastrado com sucesso!"
+        request.session["swal_message"] = {
+            "icon": "success",
+            "title": "Inclusão de Novo Médico",
+            "text": "Registro cadastrado com sucesso!",
+            "confirmButtonColor": '#303030'
+        }
     except Exception as e:
-        request.session["mensagem_header"] = "Erro ao cadastrar"
-        request.session["mensagem"] = str(e)
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro ao Cadastrar",
+            "text": f"Erro ao cadastrar médico: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
     finally:
-        db.close()
+        pass
 
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    nome_usuario = request.session.get("nome_usuario", None)
-
-    return templates.TemplateResponse("medIncluir_exe.html", {
-        "request": request,
-        "mensagem_header": request.session.get("mensagem_header", ""),
-        "mensagem": request.session.get("mensagem", ""),
-        "hoje": agora,
-        "nome_usuario": nome_usuario
-    })
+    return RedirectResponse(url="/medIncluir", status_code=303)
 
 @app.get("/medExcluir", response_class=HTMLResponse)
 async def med_excluir(request: Request, id: int, db=Depends(get_db)):
 
     if not request.session.get("user_logged_in"):
+        request.session["swal_message"] = {
+            "icon": "warning",
+            "title": "Login Necessário",
+            "text": "Você precisa estar logado para acessar esta página.",
+            "confirmButtonColor": '#303030'
+        }
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("cargo") != "admin":
-        return RedirectResponse(url="/medListar", status_code=303)
+    if request.session.get("cargo") != 1:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você não tem permissão para acessar esta página.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
 
-    with db.cursor(pymysql.cursors.DictCursor) as cursor:
-        sql = ("SELECT M.ID_Medico, M.Nome, M.CRM, M.Dt_Nasc, E.Nome_Espec "
-               "FROM Medico M JOIN Especialidade E ON M.ID_Espec = E.ID_Espec "
-               "WHERE M.ID_Medico = %s")
-        cursor.execute(sql, (id,))
-        medico = cursor.fetchone()
-    db.close()
+    medico = None
+    try:
+        with db.cursor() as cursor:
+            sql = ("SELECT M.ID_Medico, M.Nome, M.CRM, M.Dt_Nasc, E.Nome_Espec "
+                   "FROM Medico M JOIN Especialidade E ON M.ID_Espec = E.ID_Espec "
+                   "WHERE M.ID_Medico = %s")
+            cursor.execute(sql, (id,))
+            medico = cursor.fetchone()
+    except Exception as e:
+        print(f"Erro ao buscar médico para exclusão: {e}")
 
-    # Formatar data (YYYY-MM-DD para dd/mm/aaaa)
+    if not medico:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Médico Não Encontrado",
+            "text": "O médico que você tentou excluir não foi encontrado.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
+
+    data_formatada = "N/A"
     data_nasc = medico["Dt_Nasc"]
-    if isinstance(data_nasc, str):
-        ano, mes, dia = data_nasc.split("-")
-    else:
-        ano, mes, dia = data_nasc.year, f"{data_nasc.month:02d}", f"{data_nasc.day:02d}"
-    data_formatada = f"{dia}/{mes}/{ano}"
+    if data_nasc:
+        if isinstance(data_nasc, (date, datetime)):
+            data_formatada = data_nasc.strftime("%d/%m/%Y")
+        elif isinstance(data_nasc, str):
+            try:
+                data_formatada = datetime.strptime(data_nasc, "%Y-%m-%d").strftime("%d/%m/%Y")
+            except ValueError:
+                pass
 
     hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
     nome_usuario = request.session.get("nome_usuario", None)
+    swal_message = request.session.pop("swal_message", None)
 
     return templates.TemplateResponse("medExcluir.html", {
         "request": request,
         "med": medico,
         "data_formatada": data_formatada,
         "hoje": hoje,
-        "nome_usuario": nome_usuario
+        "nome_usuario": nome_usuario,
+        "swal_message": swal_message
     })
 
 @app.post("/medExcluir_exe")
 async def med_excluir_exe(request: Request, id: int = Form(...), db=Depends(get_db)):
 
     if not request.session.get("user_logged_in"):
+        request.session["swal_message"] = {
+            "icon": "warning",
+            "title": "Login Necessário",
+            "text": "Você precisa estar logado para acessar esta página.",
+            "confirmButtonColor": '#303030'
+        }
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("cargo") != "admin":
-        return RedirectResponse(url="/medListar", status_code=303)
+    if request.session.get("cargo") != 1:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você não tem permissão para realizar esta operação.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
 
     try:
-        with db.cursor(pymysql.cursors.DictCursor) as cursor:
-
+        with db.cursor() as cursor:
             sql_delete = "DELETE FROM Medico WHERE ID_Medico = %s"
             cursor.execute(sql_delete, (id,))
             db.commit()
 
-            request.session["mensagem_header"] = "Exclusão de Médico"
-            request.session["mensagem"] = f"Médico excluído com sucesso."
+            request.session["swal_message"] = {
+                "icon": "success",
+                "title": "Exclusão de Médico",
+                "text": "Médico excluído com sucesso.",
+                "confirmButtonColor": '#303030'
+            }
 
     except Exception as e:
-        request.session["mensagem_header"] = "Erro ao excluir"
-        request.session["mensagem"] = str(e)
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro ao Excluir",
+            "text": f"Erro ao excluir médico: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
     finally:
-        db.close()
+        pass
 
-    # Redireciona para a página de resultado da exclusão
-    return templates.TemplateResponse("medExcluir_exe.html", {
-        "request": request,
-        "mensagem_header": request.session.get("mensagem_header", ""),
-        "mensagem": request.session.get("mensagem", ""),
-        "hoje": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "nome_usuario": request.session.get("nome_usuario", None)
-    })
+    return RedirectResponse(url="/", status_code=303)
+
 
 @app.get("/medAtualizar", response_class=HTMLResponse)
 async def med_atualizar(request: Request, id: int, db=Depends(get_db)):
 
     if not request.session.get("user_logged_in"):
+        request.session["swal_message"] = {
+            "icon": "warning",
+            "title": "Login Necessário",
+            "text": "Você precisa estar logado para acessar esta página.",
+            "confirmButtonColor": '#303030'
+        }
         return RedirectResponse(url="/", status_code=303)
-    if request.session.get("cargo") != "admin":
-        return RedirectResponse(url="/medListar", status_code=303)
+    if request.session.get("cargo") != 1:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você não tem permissão para acessar esta página.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
 
-    with db.cursor(pymysql.cursors.DictCursor) as cursor:
-        cursor.execute("SELECT * FROM Medico WHERE ID_Medico = %s", (id,))
-        medico = cursor.fetchone()
-        cursor.execute("SELECT ID_Espec, Nome_Espec FROM Especialidade")
-        especialidades = cursor.fetchall()
-    db.close()
+    medico = None
+    especialidades = []
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("SELECT * FROM Medico WHERE ID_Medico = %s", (id,))
+            medico = cursor.fetchone()
+            cursor.execute("SELECT ID_Espec, Nome_Espec FROM Especialidade")
+            especialidades = cursor.fetchall()
+    except Exception as e:
+        print(f"Erro ao buscar médico ou especialidades para atualização: {e}")
+
+    if not medico:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Médico Não Encontrado",
+            "text": "O médico que você tentou atualizar não foi encontrado.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
 
     hoje = datetime.now().strftime("%d/%m/%Y %H:%M")
+    nome_usuario = request.session.get("nome_usuario", None)
+    swal_message = request.session.pop("swal_message", None)
 
     return templates.TemplateResponse("medAtualizar.html", {
         "request": request,
         "med": medico,
         "especialidades": especialidades,
-        "hoje": hoje
+        "hoje": hoje,
+        "nome_usuario": nome_usuario,
+        "swal_message": swal_message
     })
 
 @app.post("/medAtualizar_exe")
@@ -512,11 +928,25 @@ async def med_atualizar_exe(
     Nome: str = Form(...),
     CRM: str = Form(...),
     Especialidade: str = Form(...),
-    DataNasc: str = Form(None),
+    DataNasc: Optional[str] = Form(None),
     Imagem: UploadFile = File(None),
     db=Depends(get_db)
 ):
     if not request.session.get("user_logged_in"):
+        request.session["swal_message"] = {
+            "icon": "warning",
+            "title": "Login Necessário",
+            "text": "Você precisa estar logado para acessar esta página.",
+            "confirmButtonColor": '#303030'
+        }
+        return RedirectResponse(url="/", status_code=303)
+    if request.session.get("cargo") != 1:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você não tem permissão para realizar esta operação.",
+            "confirmButtonColor": '#d33'
+        }
         return RedirectResponse(url="/", status_code=303)
 
     foto_bytes = None
@@ -525,40 +955,41 @@ async def med_atualizar_exe(
 
     try:
         with db.cursor() as cursor:
-            if foto_bytes:
-                sql = """UPDATE Medico 
-                         SET Nome=%s, CRM=%s, Dt_Nasc=%s, ID_Espec=%s, Foto=%s
-                         WHERE ID_Medico=%s"""
-                cursor.execute(sql, (Nome, CRM, DataNasc, Especialidade, foto_bytes, id))
-            else:
-                sql = """UPDATE Medico 
-                         SET Nome=%s, CRM=%s, Dt_Nasc=%s, ID_Espec=%s
-                         WHERE ID_Medico=%s"""
-                cursor.execute(sql, (Nome, CRM, DataNasc, Especialidade, id))
+            if not foto_bytes:
+                cursor.execute("SELECT Foto FROM Medico WHERE ID_Medico = %s", (id,))
+                result = cursor.fetchone()
+                if result:
+                    foto_bytes = result['Foto']
+
+            sql = """UPDATE Medico
+                     SET Nome=%s, CRM=%s, Dt_Nasc=%s, ID_Espec=%s, Foto=%s
+                     WHERE ID_Medico=%s"""
+            cursor.execute(sql, (Nome, CRM, DataNasc, Especialidade, foto_bytes, id))
             db.commit()
 
-        request.session["mensagem_header"] = "Atualização de Médico"
-        request.session["mensagem"] = "Registro atualizado com sucesso!"
+        request.session["swal_message"] = {
+            "icon": "success",
+            "title": "Atualização de Médico",
+            "text": "Registro atualizado com sucesso!",
+            "confirmButtonColor": '#303030'
+        }
 
     except Exception as e:
-        request.session["mensagem_header"] = "Erro ao atualizar"
-        request.session["mensagem"] = str(e)
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro ao Atualizar",
+            "text": f"Erro ao atualizar médico: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
     finally:
-        db.close()
+        pass
 
-    return templates.TemplateResponse("medAtualizar_exe.html", {
-        "request": request,
-        "mensagem_header": request.session.get("mensagem_header", ""),
-        "mensagem": request.session.get("mensagem", ""),
-        "hoje": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "nome_usuario": request.session.get("nome_usuario", None)
-    })
+    return RedirectResponse(url="/", status_code=303)
+
 
 @app.post("/reset_session")
 async def reset_session(request: Request):
-    request.session.pop("mensagem_header", None)
-    request.session.pop("mensagem", None)
+    request.session.pop("swal_message", None) # Limpa apenas o swal_message
     return {"status": "ok"}
 
 Mangum(app)
-

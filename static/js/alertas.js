@@ -1,4 +1,5 @@
-// alertas.js
+// /static/js/alertas.js
+
 function mostrarAlerta(tipo, mensagem) {
     switch (tipo) {
         case "sucesso":
@@ -11,7 +12,7 @@ function mostrarAlerta(tipo, mensagem) {
             });
             break;
 
-        case "erro":
+        case "error": // Alterado de "erro" para "error"
             Swal.fire({
                 icon: 'error',
                 title: 'Erro!',
@@ -28,6 +29,16 @@ function mostrarAlerta(tipo, mensagem) {
                 text: mensagem,
                 confirmButtonColor: '#1a1a1a',
                 confirmButtonText: 'Fechar'
+            });
+            break;
+
+        case "warning": // Adicionado/Corrigido para usar 'html'
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atenção!',
+                html: 'mensagem', // <-- IMPORTANTE: usar 'html' para mensagens com tags como <ul><li>
+                confirmButtonColor: '#1a1a1a',
+                confirmButtonText: 'OK'
             });
             break;
 
