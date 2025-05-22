@@ -39,7 +39,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "PUC@1234",
+    "password": "Senha@123",
     "database": "carlink"
 }
 
@@ -105,6 +105,31 @@ async def login(
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/", status_code=303)
+
+from fastapi.responses import RedirectResponse
+from fastapi import status
+
+from fastapi.responses import RedirectResponse
+from fastapi import status
+
+@app.get("/gerenciar", response_class=HTMLResponse)
+async def gerenciar(request: Request):
+    nome_usuario = request.session.get("nome_usuario", None)
+    cargo = request.session.get("cargo", None)
+    user_is_logged_in = bool(nome_usuario)
+
+    # Verifica se o usuário está logado e tem permissão (cargo 1 ou 2)
+    if not user_is_logged_in or cargo not in [1, 2]:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+
+    return templates.TemplateResponse("gerenciar.html", {
+        "request": request,
+        "nome_usuario": nome_usuario,
+        "user_logged_in": user_is_logged_in,
+        "cargo": cargo
+    })
+
+
 
 @app.post("/cadastro", name="cadastro")
 async def cadastrar_usuario_index(

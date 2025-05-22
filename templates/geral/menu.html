@@ -39,9 +39,16 @@
     <div class="d-flex align-items-center">
       {% if nome_usuario %}
       <span class="navbar-text me-2">Olá, {{ nome_usuario }}!</span>
+
+      {% if request.session.get("cargo") in [1, 2] %}
+      <a class="btn btn-outline-primary ml-2" href="/gerenciar">Gerenciar</a>
+      {% else %}
       <a class="btn btn-outline-primary ml-2" href="/perfil">Meu Perfil</a>
+      {% endif %}
+
       <a class="btn btn-outline-danger ml-2" href="/logout">Sair</a>
       {% else %}
+
       <a class="btn btn-outline-dark me-2" href="/cadastro-usuario">Cadastrar</a>
       <a class="btn btn-dark ml-2" href="/login">Entrar</a>
       {% endif %}
