@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sobre Nós - CarLink App</title>
+
+  <!-- Bootstrap e ícones -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/custom.css') }}">
+
+
+</head>
+<body>
+
+  
+
+  <!-- Conteúdo principal -->
+  <main class="container mt-5">
+    {% include 'geral/menu.html' %}
+    <div class="row">
+      <div class="col-md-6">
+        <h2>Sobre o Nosso Aplicativo de Concessionária</h2>
+        <p class="lead">
+          Bem-vindo ao CarLink App, a sua solução completa para todas as necessidades automotivas. Nossa missão é simplificar o processo de compra, venda e manutenção de veículos, colocando o poder na palma da sua mão.
+        </p>
+        <p>
+          Nascemos da paixão por carros e da frustração com os processos tradicionais e demorados das concessionárias. Em 2025, nossa equipe de entusiastas da tecnologia e especialistas automotivos se uniu para criar uma plataforma que fosse intuitiva, transparente e eficiente.
+        </p>
+        <p>
+          Desde então, temos trabalhado incansavelmente para desenvolver um aplicativo que atenda a todas as suas necessidades. Seja você um comprador de primeira viagem, um entusiasta experiente ou alguém que precisa de serviços de manutenção confiáveis, o CarLink App foi projetado pensando em você.
+        </p>
+        <p>
+          Nosso compromisso é com a inovação contínua, a transparência em todas as transações e a construção de uma comunidade de apaixonados por carros. Acreditamos que encontrar o carro perfeito, vender seu veículo atual ou agendar uma revisão nunca deve ser complicado.
+        </p>
+        <p>
+          Explore o CarLink App hoje e descubra uma nova maneira de interagir com o mundo automotivo. Estamos aqui para simplificar sua jornada e garantir que cada experiência seja positiva e eficiente.
+        </p>
+      </div>
+      <div class="col-md-6">
+        <img
+          src="{{ url_for('static', path='imagens/car_app_placeholder.webp') }}"
+          alt="Aplicativo de Concessionária"
+          class="img-fluid rounded"
+        />
+      </div>
+    </div>
+  </main>
+
+  <!-- Rodapé (como no index, preenchendo abaixo) -->
+  {% include 'geral/rodape.html' %}
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

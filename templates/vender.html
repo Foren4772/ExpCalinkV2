@@ -1,185 +1,107 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vender Seu Carro - Carlink</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='imagens/favicon.png') }}" />
-    <link rel="stylesheet" href="/static/css/bootstrap.css" />
-    <link rel="stylesheet" href="/static/css/custom.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-      /* Estilos para a seção de herói (cabeçalho principal) */
-      .hero-section {
-        background-color: #f8f9fa; /* Cor de fundo suave */
-        padding: 60px 0; /* Espaçamento interno superior e inferior */
-        text-align: center; /* Alinhamento central do texto */
-        border-radius: 8px; /* Cantos arredondados */
-        margin-bottom: 40px; /* Margem inferior */
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05); /* Sombra suave */
-      }
-      .hero-section h1 {
-        font-size: 3.5rem; /* Tamanho da fonte do título principal */
-        font-weight: bold; /* Peso da fonte negrito */
-        color: #1a1a1a; /* Cor preta para o título - ALTERADO AQUI */
-        margin-bottom: 20px; /* Margem inferior do título */
-      }
-      .hero-section p {
-        font-size: 1.25rem; /* Tamanho da fonte do parágrafo */
-        color: #555; /* Cor cinza escura para o texto */
-        max-width: 800px; /* Largura máxima do parágrafo */
-        margin: 0 auto 30px auto; /* Centraliza o parágrafo horizontalmente e adiciona margem inferior */
-        line-height: 1.6; /* Altura da linha para melhor legibilidade */
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vender Seu Carro - Carlink</title>
 
-      /* Estilos para a seção de recursos/benefícios */
-      .features-section {
-        padding: 40px 0; /* Espaçamento interno superior e inferior */
-        text-align: center; /* Alinhamento central do texto */
-      }
-      .feature-card {
-        padding: 25px; /* Espaçamento interno do card */
-        border-radius: 8px; /* Cantos arredondados do card */
-        background-color: #fff; /* Fundo branco para o card */
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08); /* Sombra leve para o card */
-        margin-bottom: 20px; /* Margem inferior entre os cards */
-        transition: transform 0.2s ease-in-out; /* Transição suave para o efeito hover */
-      }
-      .feature-card:hover {
-        transform: translateY(-5px); /* Efeito de elevação ao passar o mouse */
-      }
-      .feature-card i {
-        font-size: 3rem; /* Tamanho da fonte dos ícones */
-        color: #1a1a1a; /* Cor preta para os ícones */
-        margin-bottom: 15px;
-      }
-      .feature-card h3 {
-        font-size: 1.75rem; /* Tamanho da fonte dos títulos dos recursos */
-        font-weight: bold; /* Peso da fonte negrito */
-        margin-bottom: 10px; /* Margem inferior do título do recurso */
-        color: #333; /* Cor escura para o título do recurso */
-      }
-      .feature-card p {
-        font-size: 1rem; /* Tamanho da fonte do texto do recurso */
-        color: #666; /* Cor cinza para o texto do recurso */
-      }
+  <link rel="icon" href="{{ url_for('static', path='imagens/favicon.png') }}" />
+  <link rel="stylesheet" href="/static/css/bootstrap.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="/static/css/custom.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
 
-      /* Estilos para a seção de chamada para ação final */
-      .call-to-action {
-        text-align: center; /* Alinhamento central do texto */
-        padding: 40px 0; /* Espaçamento interno superior e inferior */
-      }
-      .call-to-action .btn {
-        font-size: 1.5rem; /* Tamanho da fonte do botão de CTA */
-        padding: 15px 40px; /* Espaçamento interno do botão */
-        border-radius: 50px; /* Cantos bem arredondados para o botão */
-        box-shadow: 0 4px 10px rgba(0,0,0,0.15); /* Sombra para o botão */
-        /* Cores dos botões conforme solicitado */
-        background-color: #1a1a1a;
-        border-color: #1a1a1a;
-      }
-      .call-to-action .btn:hover {
-        background-color: #333333; /* Um pouco mais claro no hover */
-        border-color: #333333;
-      }
 
-      /* Sobrescrita para o botão específico na hero-section */
-      .hero-section .btn {
-        background-color: #1a1a1a; /* Cor para o botão de 'Anunciar Meu Carro Agora!' */
-        border-color: #1a1a1a;
-      }
-      .hero-section .btn:hover {
-        background-color: #333333;
-        border-color: #333333;
-      }
-    </style>
-  </head>
-  <body class="d-flex flex-column min-vh-100">
-    <div class="container">{% include 'geral/menu.html' %}</div>
+<body class="d-flex flex-column min-vh-100">
+  <div class="container">
+    {% include 'geral/menu.html' %}
+  </div>
 
-    <main class="container mt-4 flex-grow-1">
-      <section class="hero-section">
-        <h1>Venda Seu Carro com Segurança e Rapidez no Carlink</h1>
-        <p>
-          Anuncie seu veículo para milhares de compradores em potencial de forma descomplicada.
-          Com o Carlink, você tem acesso a uma plataforma intuitiva, segura e com as ferramentas
-          necessárias para fechar o melhor negócio, sem burocracia.
-        </p>
-        <a href="/cadastrocarro" class="btn btn-lg btn-success">Anunciar Meu Carro Agora!</a>
-      </section>
+  <main class="container mt-4 flex-grow-1">
+    <section class="hero-section text-center py-5 bg-light rounded shadow-sm mb-5">
+      <h1 class="display-4 fw-bold text-dark">Venda Seu Carro com Segurança e Rapidez no Carlink</h1>
+      <p class="lead text-secondary mx-auto" style="max-width: 800px;">
+        Anuncie seu veículo para milhares de compradores em potencial de forma descomplicada.
+        Com o Carlink, você tem acesso a uma plataforma intuitiva, segura e com as ferramentas
+        necessárias para fechar o melhor negócio, sem burocracia.
+      </p>
+      <a href="#"
+         id="btn-anunciar-carro"
+         class="btn btn-success btn-lg mt-3"
+         style="background-color: #1a1a1a; border-color: #1a1a1a; color: #ffffff;">
+        Anunciar Meu Carro Agora!
+      </a>
+    </section>
 
-      <section class="features-section">
-        <h2 class="mb-5 display-5 text-center">Por Que Vender no Carlink?</h2>
-        <div class="row">
-          <div class="col-md-4">
-            <div class="feature-card">
-              <i class="fas fa-shield-alt"></i>
-              <h3>Segurança Total</h3>
-              <p>Transações protegidas e verificação de dados para sua tranquilidade.</p>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="feature-card">
-              <i class="fas fa-bullhorn"></i>
-              <h3>Amplo Alcance</h3>
-              <p>Seu anúncio visto por milhares de interessados em todo o Brasil.</p>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="feature-card">
-              <i class="fas fa-tags"></i>
-              <h3>Melhores Ofertas</h3>
-              <p>Conectamos você com compradores sérios para o melhor preço.</p>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="feature-card">
-              <i class="fas fa-cogs"></i>
-              <h3>Fácil de Usar</h3>
-              <p>Interface intuitiva e processo de cadastro simples e rápido.</p>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="feature-card">
-              <i class="fas fa-file-invoice-dollar"></i>
-              <h3>Zero Burocracia</h3>
-              <p>Menos papelada e mais agilidade na venda do seu veículo.</p>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="feature-card">
-              <i class="fas fa-comments"></i>
-              <h3>Suporte Dedicado</h3>
-              <p>Nossa equipe está pronta para te ajudar em cada etapa do processo.</p>
-            </div>
+    <section class="features-section mb-5">
+      <h2 class="text-center mb-5 display-6">Por Que Vender no Carlink?</h2>
+      <div class="row g-4">
+        {% set features = [
+          {'icon': 'fa-shield-alt', 'title': 'Segurança Total', 'text': 'Transações protegidas e verificação de dados para sua tranquilidade.'},
+          {'icon': 'fa-bullhorn', 'title': 'Amplo Alcance', 'text': 'Seu anúncio visto por milhares de interessados em todo o Brasil.'},
+          {'icon': 'fa-tags', 'title': 'Melhores Ofertas', 'text': 'Conectamos você com compradores sérios para o melhor preço.'},
+          {'icon': 'fa-cogs', 'title': 'Fácil de Usar', 'text': 'Interface intuitiva e processo de cadastro simples e rápido.'},
+          {'icon': 'fa-file-invoice-dollar', 'title': 'Zero Burocracia', 'text': 'Menos papelada e mais agilidade na venda do seu veículo.'},
+          {'icon': 'fa-comments', 'title': 'Suporte Dedicado', 'text': 'Nossa equipe está pronta para te ajudar em cada etapa do processo.'}
+        ] %}
+        {% for f in features %}
+        <div class="col-md-4">
+          <div class="feature-card p-4 bg-white rounded shadow-sm text-center h-100">
+            <i class="fas {{ f.icon }} fa-3x text-dark mb-3"></i>
+            <h3 class="h5 fw-bold">{{ f.title }}</h3>
+            <p class="text-muted">{{ f.text }}</p>
           </div>
         </div>
-      </section>
+        {% endfor %}
+      </div>
+    </section>
 
-      <section class="call-to-action mt-5">
-        <p class="lead">Pronto para dar o próximo passo e vender seu carro?</p>
-        <a href="/cadastrocarro" class="btn btn-primary btn-lg">Começar a Anunciar!</a>
-      </section>
-    </main>
+    <section class="call-to-action text-center py-5">
+      <p class="lead mb-3">Pronto para dar o próximo passo e vender seu carro?</p>
+      <a href="/cadastrocarro" class="btn btn-primary btn-lg">Começar a Anunciar!</a>
+    </section>
+  </main>
 
-    <footer class="mt-auto">{% include 'geral/rodape.html' %}</footer>
+  {% include 'geral/rodape.html' %}
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="/static/js/alertas.js"></script>
+  <script>
+    // Recebe a variável user_logged_in do backend como string 'true' ou 'false'
+    const isUserLoggedIn = "{{ 'true' if user_logged_in else 'false' }}";
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-    {% include 'geral/menu.html' %}
-    {% include 'geral/rodape.html' %}
-    {% if swal_message %}
-    <script>
-    Swal.fire({
-        icon: '{{ swal_message.icon }}',
-        title: '{{ swal_message.title }}',
-        html: '{{ swal_message.text | safe }}', 
-        confirmButtonColor: '{{ swal_message.confirmButtonColor | default("#303030") }}'
+    document.getElementById('btn-anunciar-carro').addEventListener('click', function(event) {
+      if (isUserLoggedIn === 'false') {
+        event.preventDefault();
+        Swal.fire({
+          icon: 'warning',
+          title: 'Você precisa estar logado!',
+          text: 'Para anunciar seu carro, faça login na sua conta.',
+          showCancelButton: true,
+          confirmButtonText: 'Ir para Login',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#1a1a1a',
+          cancelButtonColor: '#d33',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = '/login';
+          }
+        });
+      } else {
+        window.location.href = '/cadastrocarro';
+      }
     });
-    </script>
-    {% endif %}
-  </body>
+  </script>
+
+  {% if swal_message %}
+  <script>
+    Swal.fire({
+      icon: '{{ swal_message.icon }}',
+      title: '{{ swal_message.title }}',
+      html: '{{ swal_message.text | safe }}',
+      confirmButtonColor: '{{ swal_message.confirmButtonColor | default("#303030") }}'
+    });
+  </script>
+  {% endif %}
+</body>
 </html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comprar Carro - Carlink</title>
+
+  <link rel="icon" href="{{ url_for('static', path='imagens/favicon.png') }}" />
+  <link rel="stylesheet" href="/static/css/bootstrap.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="/static/css/custom.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <style>
+    .menu-centralizado .navbar .container-fluid {
+      justify-content: center !important;
+    }
+  </style>
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+  <div class="menu-centralizado">
+    {% include 'geral/menu.html' %}
+  </div>
+
+  <main class="container mt-4 flex-grow-1">
+    <section class="hero-section text-center py-5 bg-light rounded shadow-sm mb-5">
+      <h1 class="display-4 fw-bold text-dark">Encontre o Carro Perfeito para Você</h1>
+      <p class="lead text-secondary mx-auto" style="max-width: 800px;">
+        Use os filtros abaixo para encontrar veículos que atendam às suas necessidades.
+      </p>
+    </section>
+
+    <section class="filters-section mb-5">
+      <form method="get" action="/comprar" class="row g-3 align-items-end justify-content-center">
+        <div class="col-md-3">
+          <label for="marca_id" class="form-label fw-semibold">Marca</label>
+          <select name="marca_id" id="marca_id" class="form-select" onchange="this.form.submit()">
+            <option value="" {% if not selected_marca_id %}selected{% endif %}>Todas</option>
+            {% for marca in marcas %}
+              <option value="{{ marca.id_marca }}" {% if marca.id_marca == selected_marca_id %}selected{% endif %}>{{ marca.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label for="modelo_id" class="form-label fw-semibold">Modelo</label>
+          <select name="modelo_id" id="modelo_id" class="form-select" {% if not modelos_filtrados %}disabled{% endif %} onchange="this.form.submit()">
+            <option value="" {% if not selected_modelo_id %}selected{% endif %}>Todos</option>
+            {% for modelo in modelos_filtrados %}
+              <option value="{{ modelo.id_modelo }}" {% if modelo.id_modelo == selected_modelo_id %}selected{% endif %}>{{ modelo.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label for="ano_min" class="form-label fw-semibold">Ano Mínimo</label>
+          <input type="number" name="ano_min" id="ano_min" min="1900" max="2100" step="1" class="form-control" value="{{ selected_ano_min or '' }}" onchange="this.form.submit()" />
+        </div>
+
+        <div class="col-md-2">
+          <label for="preco_max" class="form-label fw-semibold">Preço Máximo</label>
+          <input type="text" name="preco_max" id="preco_max" placeholder="R$ 50.000,00" class="form-control" value="{{ selected_preco_max_display or '' }}" onchange="this.form.submit()" />
+        </div>
+
+        <div class="col-md-2 d-grid">
+          <button type="submit" class="btn btn-primary btn-lg mt-3">Filtrar</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="car-list row g-4">
+      {% if carros %}
+        {% for carro in carros %}
+          <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm">
+              {% if carro.Imagem_base64 %}
+                <img src="data:image/jpeg;base64,{{ carro.Imagem_base64 }}" class="card-img-top" alt="Imagem do carro {{ carro.marca_nome }} {{ carro.modelo_nome }}">
+              {% else %}
+                <img src="{{ url_for('static', path='imagens/no-image.png') }}" class="card-img-top" alt="Imagem não disponível">
+              {% endif %}
+              <div class="card-body d-flex flex-column">
+                <h5 class="card-title">{{ carro.marca_nome }} {{ carro.modelo_nome }} - {{ carro.Ano }}</h5>
+                <p class="card-text flex-grow-1">{{ carro.Descricao or 'Sem descrição' }}</p>
+                <ul class="list-unstyled mb-3">
+                  <li><strong>Cor:</strong> {{ carro.Cor }}</li>
+                  <li><strong>Potência:</strong> {{ carro.Potencia }} HP</li>
+                </ul>
+                <h4 class="text-success">R$ {{ '{:,.2f}'.format(carro.Preco).replace(',', 'X').replace('.', ',').replace('X', '.')}}</h4>
+              </div>
+              <div class="card-footer text-center">
+                <a href="/detalhes/{{ carro.id_carro }}" class="btn btn-outline-primary w-100">Ver Detalhes</a>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="col-12">
+          <p class="text-center fs-5 text-muted">Nenhum carro encontrado com os filtros aplicados.</p>
+        </div>
+      {% endif %}
+    </section>
+  </main>
+
+  {% include 'geral/rodape.html' %}
+
+  {% if swal_message %}
+  <script>
+    Swal.fire({
+      icon: '{{ swal_message.icon }}',
+      title: '{{ swal_message.title }}',
+      html: '{{ swal_message.text | safe }}',
+      confirmButtonColor: '#1a1a1a'
+    });
+  </script>
+  {% endif %}
+
+  <script>
+    // Atualiza a lista de modelos ao mudar a marca (se desejar uma versão mais dinâmica, pode usar JS e AJAX)
+    // Aqui deixei só submit automático, conforme onchange nos selects
+  </script>
+</body>
+</html>
