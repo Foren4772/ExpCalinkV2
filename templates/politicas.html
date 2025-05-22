@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Políticas de Uso e Privacidade - CarLink App</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <link rel="stylesheet" href="{{ url_for('static', path='css/custom.css') }}" />
+  </head>
+  <body>
+
+    <div class="container mt-5">
+        {% include 'geral/menu.html' %}
+        <div class="row">
+            <div class="col-md-10 offset-md-1">
+            <h2 class="text-center mb-4">Políticas de Uso e Privacidade</h2>
+
+            <section class="mb-4">
+                <h3>1. Coleta de Dados</h3>
+                <p>
+                Ao utilizar o CarLink App, podemos coletar certas informações sobre você. Isso pode incluir dados que você nos fornece diretamente, como seu nome, endereço de e-mail, número de telefone e informações do veículo. Também podemos coletar dados automaticamente, como seu endereço IP, tipo de navegador, páginas que você visita em nosso aplicativo e horários de acesso.
+                </p>
+                <p>
+                A coleta desses dados nos ajuda a melhorar a sua experiência, personalizar o conteúdo, fornecer suporte técnico e comunicar informações relevantes sobre nossos serviços e ofertas.
+                </p>
+            </section>
+
+            <section class="mb-4">
+                <h3>2. Uso de Dados</h3>
+                <p>
+                As informações coletadas podem ser usadas para os seguintes propósitos:
+                </p>
+                <ul>
+                <li>Fornecer e manter o nosso aplicativo.</li>
+                <li>Personalizar a sua experiência e fornecer conteúdo e ofertas direcionadas.</li>
+                <li>Comunicar com você sobre atualizações, notícias e informações promocionais (com o seu consentimento, quando necessário).</li>
+                <li>Analisar o uso do nosso aplicativo para melhorar seus recursos e funcionalidades.</li>
+                <li>Fornecer suporte ao cliente.</li>
+                <li>Monitorar e garantir a segurança do nosso aplicativo.</li>
+                <li>Cumprir obrigações legais.</li>
+                </ul>
+            </section>
+
+            <section class="mb-4">
+                <h3>3. Compartilhamento de Dados</h3>
+                <p>
+                Podemos compartilhar suas informações com terceiros nas seguintes circunstâncias:
+                </p>
+                <ul>
+                <li>Com prestadores de serviços que nos auxiliam na operação do nosso aplicativo e na prestação de serviços a você (por exemplo, hospedagem, análise de dados, processamento de pagamentos). Esses terceiros são obrigados a proteger suas informações de acordo com termos contratuais.</li>
+                <li>Quando exigido por lei ou em resposta a processos legais válidos (por exemplo, uma ordem judicial ou intimação).</li>
+                <li>Para proteger nossos direitos e propriedade, ou a segurança de nossos usuários ou terceiros.</li>
+                <li>Em conexão com uma fusão, aquisição ou venda de todos ou parte de nossos ativos (nesse caso, suas informações podem ser transferidas para a entidade adquirente).</li>
+                <li>Com o seu consentimento explícito.</li>
+                </ul>
+            </section>
+
+            <section class="mb-4">
+                <h3>4. Segurança de Dados</h3>
+                <p>
+                Implementamos medidas de segurança razoáveis para proteger suas informações contra acesso não autorizado, uso indevido, alteração ou destruição. No entanto, nenhuma transmissão de dados pela internet ou sistema de armazenamento eletrônico é completamente seguro. Portanto, não podemos garantir a segurança absoluta de suas informações.
+                </p>
+            </section>
+
+            <section class="mb-4">
+                <h3>5. Seus Direitos</h3>
+                <p>
+                Você pode ter certos direitos em relação às suas informações pessoais, incluindo o direito de acessar, corrigir, excluir ou restringir o processamento de seus dados. Se você deseja exercer esses direitos, entre em contato conosco através das informações fornecidas na página de contato.
+                </p>
+            </section>
+
+            <section class="mb-4">
+                <h3>6. Alterações a esta Política</h3>
+                <p>
+                Podemos atualizar esta Política de Uso e Privacidade periodicamente. Quaisquer alterações serão publicadas nesta página, e a data da última atualização será indicada no início da política. Recomendamos que você revise esta política regularmente para se manter informado sobre nossas práticas de privacidade.
+                </p>
+            </section>
+            </div>
+        </div>
+        </div>
+
+    {% include 'geral/rodape.html' %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', path='js/scripts.js') }}"></script>
+  </body>
+</html>

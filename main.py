@@ -296,6 +296,17 @@ async def criar_usuario(
     finally:
         pass
 
+@app.get("/sobre-nos", response_class=HTMLResponse)
+async def sobre_nos(request: Request):
+    return templates.TemplateResponse("sobre-nos.html", {"request": request})
+
+@app.get("/politicas", response_class=HTMLResponse)
+async def read_politicas(request: Request):
+    """
+    Rota para exibir a página de políticas de uso e privacidade.
+    """
+    return templates.TemplateResponse("politicas.html", {"request": request})
+
 # --- Rota de Cadastro de Carro (GET) - ALTERADA PARA REDIRECIONAR PARA /vender ---
 @app.get("/cadastro-usuario", response_class=HTMLResponse)
 async def cadastro_usuario_form(request: Request, db=Depends(get_db)):
@@ -408,7 +419,6 @@ async def criar_usuario(
 @app.get("/vender", response_class=HTMLResponse)
 async def vender_carro_intro(request: Request):
     return templates.TemplateResponse("vender.html", {"request": request})
-
 
 
 # --- ROTA PARA CADASTRO DE CARRO (NOVA OU CORRIGIDA) ---
