@@ -60,7 +60,7 @@
 
     <section class="call-to-action text-center py-5">
       <p class="lead mb-3">Pronto para dar o próximo passo e vender seu carro?</p>
-      <a href="/cadastrocarro" class="btn btn-primary btn-lg">Começar a Anunciar!</a>
+      <a href="#" id="btn-anunciar-carro-cta" class="btn btn-primary btn-lg">Começar a Anunciar!</a>
     </section>
   </main>
 
@@ -92,6 +92,31 @@
       }
     });
   </script>
+
+  <script>
+    document.getElementById('btn-anunciar-carro-cta').addEventListener('click', function(event) {
+      if (isUserLoggedIn === 'false') {
+        event.preventDefault();
+        Swal.fire({
+          icon: 'warning',
+          title: 'Você precisa estar logado!',
+          text: 'Para anunciar seu carro, faça login na sua conta.',
+          showCancelButton: true,
+          confirmButtonText: 'Ir para Login',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#1a1a1a',
+          cancelButtonColor: '#d33',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = '/login';
+          }
+        });
+      } else {
+        window.location.href = '/cadastrocarro';
+      }
+    });
+  </script>
+
 
   {% if swal_message %}
   <script>
