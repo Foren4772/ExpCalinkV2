@@ -70,7 +70,8 @@ async def index(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 async def mostrar_login(request: Request):
-    request.session.pop("login_error", None)
+    if request.session.get("user_logged_in"):
+        return RedirectResponse(url="/", status_code=303)
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
@@ -120,7 +121,7 @@ async def gerenciar(request: Request):
 
     # Verifica se o usuário está logado e tem permissão (cargo 1 ou 2)
     if not user_is_logged_in or cargo not in [1, 2]:
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
 
     return templates.TemplateResponse("gerenciar.html", {
         "request": request,
@@ -634,32 +635,19 @@ async def comprar_carro(
 
 @app.get("/usuariosListar", name="usuariosListar", response_class=HTMLResponse)
 async def listar_usuarios(request: Request, db=Depends(get_db)):
-    if not request.session.get("user_logged_in"):
-        request.session["swal_message"] = {
-            "icon": "warning",
-            "title": "Login Necessário",
-            "text": "Você precisa estar logado para acessar esta página.",
-            "confirmButtonColor": '#303030'
-        }
-        return RedirectResponse(url="/", status_code=303)
-
-    if request.session.get("cargo") != 1:
-        request.session["swal_message"] = {
-            "icon": "error",
-            "title": "Acesso Negado",
-            "text": "Você não tem permissão para visualizar esta página.",
-            "confirmButtonColor": '#d33'
-        }
+    if not request.session.get("user_logged_in") or request.session.get("cargo") not in (1, 2):
         return RedirectResponse(url="/", status_code=303)
 
     with db.cursor() as cursor:
         sql = """
-            SELECT U.id_usuario, U.nome, U.genero, U.dataNascimento, U.cpf,
-            U.email, U.telefone, U.imagemPerfil, U.cargo_id, C.nome AS cargo
-            FROM usuario AS U
-            LEFT JOIN cargo AS C ON U.cargo_id = C.id_cargo
-            ORDER BY U.nome
-            """
+                SELECT U.id_usuario, U.nome, U.genero, U.dataNascimento, U.cpf,
+                U.email, U.telefone, U.imagemPerfil, U.cargo_id, C.nome AS cargo
+                FROM usuario AS U
+                LEFT JOIN cargo AS C ON U.cargo_id = C.id_cargo
+                WHERE U.cargo_id = 4
+                ORDER BY U.nome
+                """
+
 
         cursor.execute(sql)
         usuarios = cursor.fetchall()
@@ -697,6 +685,89 @@ async def listar_usuarios(request: Request, db=Depends(get_db)):
         "nome_usuario": nome_usuario,
         "swal_message": swal_message
     })
+
+@app.get("/funcionariosListar", name="funcionariosListar", response_class=HTMLResponse)
+async def listar_funcionarios(request: Request, db=Depends(get_db)):
+    if not request.session.get("user_logged_in") or request.session.get("cargo") not in (1, 2):
+        return RedirectResponse(url="/", status_code=303)
+
+    with db.cursor() as cursor:
+        sql = """
+                SELECT U.id_usuario, U.nome, U.genero, U.dataNascimento, U.cpf,
+                U.email, U.telefone, U.imagemPerfil, U.cargo_id, C.nome AS cargo
+                FROM usuario AS U
+                LEFT JOIN cargo AS C ON U.cargo_id = C.id_cargo
+                WHERE U.cargo_id IN (1, 2, 3)
+                ORDER BY U.nome
+                """
+
+
+        cursor.execute(sql)
+        usuarios = cursor.fetchall()
+
+    hoje = date.today()
+    for usuario in usuarios:
+        dt_nasc = usuario["dataNascimento"]
+        if dt_nasc:
+            if isinstance(dt_nasc, str):
+                ano, mes, dia = map(int, dt_nasc.split("-"))
+                dt_nasc = date(ano, mes, dia)
+
+            idade = hoje.year - dt_nasc.year
+            if (dt_nasc.month, dt_nasc.day) > (hoje.month, hoje.day):
+                idade -= 1
+            usuario["idade"] = idade
+        else:
+            usuario["idade"] = "N/A"
+
+        if usuario["imagemPerfil"]:
+            if isinstance(usuario["imagemPerfil"], bytearray):
+                usuario["imagemPerfil"] = bytes(usuario["imagemPerfil"])
+            usuario["imagemPerfil_base64"] = "data:image/png;base64," + base64.b64encode(usuario["imagemPerfil"]).decode('utf-8')
+        else:
+            usuario["imagemPerfil_base64"] = None
+
+    nome_usuario = request.session.get("nome_usuario", "Visitante")
+    swal_message = request.session.pop("swal_message", None)
+    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+    return templates.TemplateResponse("funcionariosListar.html", {
+        "request": request,
+        "usuarios": usuarios,
+        "hoje": agora,
+        "nome_usuario": nome_usuario,
+        "swal_message": swal_message
+    })
+
+@app.get("/carrosListar", name="carrosListar", response_class=HTMLResponse)
+async def listar_carros(request: Request, db=Depends(get_db)):
+    if not request.session.get("user_logged_in") or request.session.get("cargo") != 1:
+        return RedirectResponse(url="/", status_code=303)
+
+    with db.cursor() as cursor:
+        sql = """
+            SELECT C.id_carro, C.ano, C.placa, C.cor, C.renavam, C.chassi,
+                   C.motor, C.potencia, C.preco, C.imagem, C.descricao,
+                   M.nome AS nome_modelo, U.nome AS nome_usuario
+            FROM carro AS C
+            LEFT JOIN modelo AS M ON C.fk_id_modelo = M.id_modelo
+            LEFT JOIN usuario AS U ON C.fk_id_usuario = U.id_usuario
+            ORDER BY C.id_carro DESC
+        """
+        cursor.execute(sql)
+        carros = cursor.fetchall()
+
+    for carro in carros:
+        carro["ano"] = carro["ano"].strftime("%Y") if carro["ano"] else "N/A"
+        carro["preco"] = f"R$ {carro['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    return templates.TemplateResponse("carrosListar.html", {
+        "request": request,
+        "carros": carros,
+        "hoje": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+        "nome_usuario": request.session.get("nome_usuario", "Visitante"),
+    })
+
 
 @app.get("/medIncluir", response_class=HTMLResponse)
 async def medIncluir(request: Request, db=Depends(get_db)):
