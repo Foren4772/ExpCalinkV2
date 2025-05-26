@@ -6,9 +6,9 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', path='imagens/favicon.png') }}" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-    <link rel="stylesheet" href="/static/css/custom.css" />
-    <link rel="stylesheet" href="/static/css/bootstrap.css" />
-    <link rel="icon" type="image/png" href="{{ url_for('static', path='imagens/favicon.png') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', path='css/custom.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', path='css/bootstrap.css') }}" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
   </head>
 
   <body style="background-color: #ececec">
@@ -21,7 +21,7 @@
             <div class="card shadow-sm">
               <div class="card-header bg-primary text-white">
                 <div class="d-flex justify-content-between align-items-center">
-                  <h2 class="h5 mb-0">Listagem de Usuários</h2>
+                  <h2 class="h5 mb-0">Listagem de Usuários (Clientes)</h2>
                   <small>Acesso em: {{ hoje }}</small>
                 </div>
               </div>
@@ -48,7 +48,7 @@
                       <tr>
                         <td>{{ usuario.id_usuario }}</td>
                         <td>
-                          {% if usuario.imagemPerfil %}
+                          {% if usuario.imagemPerfil_base64 %}
                           <img
                             class="rounded-circle img-thumbnail"
                             src="{{ usuario.imagemPerfil_base64 }}"
@@ -56,11 +56,10 @@
                             width="50"
                             height="50"
                           />
-
                           {% else %}
                           <img
                             class="rounded-circle img-thumbnail"
-                            src="/static/imagens/pessoa.jpg"
+                            src="{{ url_for('static', path='imagens/pessoa.jpg') }}"
                             alt="Sem foto"
                             width="50"
                             height="50"
@@ -68,45 +67,61 @@
                           {% endif %}
                         </td>
                         <td>{{ usuario.nome }}</td>
-                        <td>{{ usuario.genero }}</td>
-                        <td>{{ usuario.dataNascimento.strftime('%d/%m/%Y') if usuario.dataNascimento }}</td>
+                        <td>{{ usuario.genero if usuario.genero else 'N/I' }}</td>
+                        <td>{{ usuario.dataNascimento.strftime('%d/%m/%Y') if usuario.dataNascimento else 'N/I' }}</td>
                         <td>{{ usuario.cpf }}</td>
                         <td>{{ usuario.email }}</td>
-                        <td>{{ usuario.telefone }}</td>
+                        <td>{{ usuario.telefone if usuario.telefone else 'N/I' }}</td>
                         <td>
-                          {% if usuario.cargo_id == 1 %}
-                          <span class="badge">Admin</span>
+                          {# This list is filtered for cargo_id = 4 (Usuário) by the backend query #} {# For other lists
+                          like funcionariosListar, this badge logic would be more varied #} {% if usuario.cargo_id == 4
+                          %}
+                          <span class="badge bg-secondary">Usuário</span>
+                          {% elif usuario.cargo_id == 1 %}
+                          <span class="badge bg-danger">Admin</span>
                           {% elif usuario.cargo_id == 2 %}
-                          <span class="badge">Gerente</span>
+                          <span class="badge bg-warning text-dark">Gerente</span>
                           {% elif usuario.cargo_id == 3 %}
-                          <span class="badge">Atendente</span>
-                          {% elif usuario.cargo_id == 4 %}
-                          <span class="badge">Usuário</span>
+                          <span class="badge bg-info text-dark">Atendente</span>
                           {% else %}
-                          <span class="badge">Indefinido</span>
+                          <span class="badge bg-light text-dark">Indefinido</span>
                           {% endif %}
                         </td>
-
                         <td>
                           {% if request.session.get("cargo") == 1 %}
-                          <a
-                            href="/usuario/editar?id={{ usuario.id_usuario }}"
-                            class="btn btn-sm btn-outline-primary"
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-outline-primary edit-user-btn"
                             title="Editar Usuário"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editUserModal"
+                            data-id="{{ usuario.id_usuario }}"
+                            data-nome="{{ usuario.nome }}"
+                            data-genero="{{ usuario.genero if usuario.genero else '' }}"
+                            data-nascimento="{{ usuario.dataNascimento.strftime('%Y-%m-%d') if usuario.dataNascimento else '' }}"
+                            data-cpf="{{ usuario.cpf }}"
+                            data-email="{{ usuario.email }}"
+                            data-telefone="{{ usuario.telefone if usuario.telefone else '' }}"
+                            data-cargo_id="{{ usuario.cargo_id }}"
+                            data-imagem_url="{{ usuario.imagemPerfil_base64 if usuario.imagemPerfil_base64 else url_for('static', path='imagens/pessoa.jpg') }}"
                           >
                             <i class="fas fa-edit"></i>
-                          </a>
+                          </button>
                           {% endif %}
                         </td>
                         <td>
                           {% if request.session.get("cargo") == 1 %}
-                          <a
-                            href="/usuario/excluir?id={{ usuario.id_usuario }}"
-                            class="btn btn-sm btn-outline-danger"
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-outline-danger delete-user-btn"
                             title="Excluir Usuário"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteUserModal"
+                            data-id="{{ usuario.id_usuario }}"
+                            data-nome="{{ usuario.nome }}"
                           >
                             <i class="fas fa-trash-alt"></i>
-                          </a>
+                          </button>
                           {% endif %}
                         </td>
                       </tr>
@@ -115,14 +130,248 @@
                   </table>
                 </div>
               </div>
-              <div class="card-footer text-muted">Total de usuários: {{ usuarios|length }}</div>
+              <div class="card-footer text-muted">Total de usuários (clientes): {{ usuarios|length }}</div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Bootstrap Bundle with Popper -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <form id="editUserForm" method="post" action="" enctype="multipart/form-data">
+            {# Action will be set by JS #}
+            <div class="modal-header">
+              <h5 class="modal-title" id="editUserModalLabel">Editar Usuário</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <input type="hidden" id="editUserId" name="id_usuario" />
+
+              <div class="row">
+                <div class="col-md-8">
+                  <div class="mb-3">
+                    <label for="editUserName" class="form-label">Nome Completo</label>
+                    <input type="text" class="form-control" id="editUserName" name="nome" required />
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <label for="editUserCargo" class="form-label">Cargo</label>
+                  <select class="form-select" id="editUserCargo" name="cargo_id" required>
+                    {# Cargos should ideally be passed from backend #} {# {% for cargo in todos_os_cargos %} #} {#
+                    <option value="{{ cargo.id_cargo }}">{{ cargo.nome }}</option>
+                    #} {# {% endfor %} #}
+                    <option value="1">Admin</option>
+                    <option value="2">Gerente</option>
+                    <option value="3">Atendente</option>
+                    <option value="4" selected>Usuário</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="mb-3">
+                    <label for="editUserGenero" class="form-label">Gênero</label>
+                    <select class="form-select" id="editUserGenero" name="genero">
+                      <option value="">Não informar</option>
+                      <option value="Masculino">Masculino</option>
+                      <option value="Feminino">Feminino</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="mb-3">
+                    <label for="editUserNascimento" class="form-label">Data de Nascimento</label>
+                    <input type="date" class="form-control" id="editUserNascimento" name="dataNascimento" />
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="mb-3">
+                    <label for="editUserCPF" class="form-label">CPF</label>
+                    <input type="text" class="form-control" id="editUserCPF" name="cpf" required readonly /> {# CPF
+                    usually not editable #}
+                  </div>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label for="editUserEmail" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="editUserEmail" name="email" required />
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label for="editUserTelefone" class="form-label">Telefone</label>
+                    <input type="text" class="form-control" id="editUserTelefone" name="telefone" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="row align-items-center">
+                <div class="col-md-3">
+                  <label class="form-label">Imagem Atual:</label>
+                  <img
+                    id="editUserCurrentImage"
+                    src=""
+                    alt="Imagem Atual"
+                    class="img-thumbnail mb-2"
+                    style="max-width: 100px; max-height: 100px"
+                  />
+                </div>
+                <div class="col-md-9">
+                  <div class="mb-3">
+                    <label for="editUserImagemPerfil" class="form-label">Alterar Imagem de Perfil (opcional)</label>
+                    <input
+                      class="form-control"
+                      type="file"
+                      id="editUserImagemPerfil"
+                      name="imagemPerfil"
+                      accept="image/*"
+                    />
+                  </div>
+                  <div class="form-check mb-3">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      value="true"
+                      id="removeUserImagem"
+                      name="remover_imagem_perfil"
+                    />
+                    <label class="form-check-label" for="removeUserImagem">
+                      Remover Imagem de Perfil Atual (deixa sem imagem)
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal fade"
+      id="deleteUserModal"
+      tabindex="-1"
+      aria-labelledby="deleteUserModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form id="deleteUserForm" method="post" action="">
+            {# Action will be set by JS #}
+            <div class="modal-header">
+              <h5 class="modal-title" id="deleteUserModalLabel">Confirmar Exclusão</h5>
+              <button type="button" class="btn btn-primary" data-bs-dismiss="modal">X</button>
+            </div>
+            <div class="modal-body">
+              <input type="hidden" id="deleteUserId" name="id_usuario" />
+              <p>Você tem certeza que deseja excluir o usuário <strong id="deleteUserName"></strong>?</p>
+              <p>Esta ação não poderá ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-danger">Excluir Usuário</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // Handle Edit User Modal
+        var editUserModal = document.getElementById('editUserModal');
+        if (editUserModal) {
+          editUserModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget; // Button that triggered the modal
+
+            var userId = button.getAttribute('data-id');
+            var nome = button.getAttribute('data-nome');
+            var genero = button.getAttribute('data-genero');
+            var nascimento = button.getAttribute('data-nascimento');
+            var cpf = button.getAttribute('data-cpf');
+            var email = button.getAttribute('data-email');
+            var telefone = button.getAttribute('data-telefone');
+            var cargoId = button.getAttribute('data-cargo_id');
+            var imagemUrl = button.getAttribute('data-imagem_url');
+
+            var modalTitle = editUserModal.querySelector('.modal-title');
+            var userIdInput = editUserModal.querySelector('#editUserId');
+            var userNameInput = editUserModal.querySelector('#editUserName');
+            var userGeneroSelect = editUserModal.querySelector('#editUserGenero');
+            var userNascimentoInput = editUserModal.querySelector('#editUserNascimento');
+            var userCPFInput = editUserModal.querySelector('#editUserCPF');
+            var userEmailInput = editUserModal.querySelector('#editUserEmail');
+            var userTelefoneInput = editUserModal.querySelector('#editUserTelefone');
+            var userCargoSelect = editUserModal.querySelector('#editUserCargo');
+            var userCurrentImage = editUserModal.querySelector('#editUserCurrentImage');
+            var userImageInput = editUserModal.querySelector('#editUserImagemPerfil');
+            var removeUserImageCheckbox = editUserModal.querySelector('#removeUserImagem');
+
+
+            modalTitle.textContent = 'Editar Usuário: ' + nome;
+            userIdInput.value = userId;
+            userNameInput.value = nome;
+            userGeneroSelect.value = genero;
+            userNascimentoInput.value = nascimento; // HTML date input wants YYYY-MM-DD
+            userCPFInput.value = cpf;
+            userEmailInput.value = email;
+            userTelefoneInput.value = telefone;
+            userCargoSelect.value = cargoId;
+            userCurrentImage.src = imagemUrl;
+            userImageInput.value = ''; // Clear file input
+            removeUserImageCheckbox.checked = false; // Uncheck remove image
+
+            // Set the form action dynamically
+            var form = editUserModal.querySelector('#editUserForm');
+            form.action = '/usuario/atualizar_perfil_admin'; // Your new backend endpoint for update
+          });
+        }
+
+        // Handle Delete User Modal
+        var deleteUserModal = document.getElementById('deleteUserModal');
+        if (deleteUserModal) {
+          deleteUserModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget; // Button that triggered the modal
+            var userId = button.getAttribute('data-id');
+            var userName = button.getAttribute('data-nome');
+
+            var userIdInput = deleteUserModal.querySelector('#deleteUserId');
+            var userNameSpan = deleteUserModal.querySelector('#deleteUserName');
+
+            userIdInput.value = userId;
+            userNameSpan.textContent = userName;
+
+            // Set the form action dynamically
+            var form = deleteUserModal.querySelector('#deleteUserForm');
+            form.action = '/usuario/excluir_perfil_admin'; // Your new backend endpoint for delete
+          });
+        }
+
+        // Display SweetAlert message if present in session (from backend redirect)
+        {% if swal_message %}
+        Swal.fire({
+            icon: '{{ swal_message.icon }}',
+            title: '{{ swal_message.title }}',
+            text: '{{ swal_message.text }}',
+            confirmButtonColor: '{{ swal_message.confirmButtonColor | default("#303030") }}'
+        });
+        {% set _ = request.session.pop("swal_message", None) %} // Clear message after displaying
+        {% endif %}
+      });
+    </script>
   </body>
 </html>

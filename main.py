@@ -633,111 +633,468 @@ async def comprar_carro(
     })
 
 
+def fetch_all_cargos(db: pymysql.Connection) -> List[Dict[str, Any]]:
+    with db.cursor() as cursor:
+        cursor.execute("SELECT id_cargo, nome FROM cargo ORDER BY nome")
+        return cursor.fetchall()
+
 @app.get("/usuariosListar", name="usuariosListar", response_class=HTMLResponse)
-async def listar_usuarios(request: Request, db=Depends(get_db)):
-    if not request.session.get("user_logged_in") or request.session.get("cargo") not in (1, 2):
+async def listar_usuarios(request: Request, db: pymysql.Connection = Depends(get_db)):
+    if not request.session.get("user_logged_in"): # Basic login check
+        request.session["swal_message"] = {"icon": "warning", "title": "Acesso Negado", "text": "Você precisa estar logado."}
+        return RedirectResponse(url="/login", status_code=303)
+
+    # Admin or Gerente can view this list (as per original code cargo 1 or 2)
+    # However, the original SQL filters for cargo_id = 4 (Usuários/Clientes)
+    # And edit/delete buttons are only for cargo == 1 (Admin)
+    logged_in_cargo = request.session.get("cargo")
+    if logged_in_cargo not in (1, 2): # Assuming Admin (1) or Gerente (2) can access list pages
+        request.session["swal_message"] = {"icon": "error", "title": "Acesso Negado", "text": "Você não tem permissão para ver esta lista."}
         return RedirectResponse(url="/", status_code=303)
 
     with db.cursor() as cursor:
+        # This query specifically lists "Usuários" (Clientes) with cargo_id = 4
         sql = """
                 SELECT U.id_usuario, U.nome, U.genero, U.dataNascimento, U.cpf,
-                U.email, U.telefone, U.imagemPerfil, U.cargo_id, C.nome AS cargo
+                U.email, U.telefone, U.imagemPerfil, U.cargo_id, C.nome AS cargo_nome
                 FROM usuario AS U
                 LEFT JOIN cargo AS C ON U.cargo_id = C.id_cargo
                 WHERE U.cargo_id = 4
                 ORDER BY U.nome
                 """
-
-
         cursor.execute(sql)
         usuarios = cursor.fetchall()
 
+    # Fetch all cargos for the edit modal dropdown
+    todos_os_cargos = fetch_all_cargos(db) # You'll need this for the edit modal
+
     hoje = date.today()
     for usuario in usuarios:
+        # ... (your existing age and image processing logic for usuarios) ...
         dt_nasc = usuario["dataNascimento"]
         if dt_nasc:
-            if isinstance(dt_nasc, str):
-                ano, mes, dia = map(int, dt_nasc.split("-"))
-                dt_nasc = date(ano, mes, dia)
+            if isinstance(dt_nasc, str): # Should be date object from DB
+                try:
+                    dt_nasc = datetime.strptime(dt_nasc, "%Y-%m-%d").date()
+                    usuario["dataNascimento"] = dt_nasc # Ensure it's a date object
+                except ValueError:
+                    pass # Keep original if format is unexpected
 
-            idade = hoje.year - dt_nasc.year
-            if (dt_nasc.month, dt_nasc.day) > (hoje.month, hoje.day):
-                idade -= 1
-            usuario["idade"] = idade
+            if isinstance(dt_nasc, date): # Check if it's a date object
+                idade = hoje.year - dt_nasc.year
+                if (dt_nasc.month, dt_nasc.day) > (hoje.month, hoje.day):
+                    idade -= 1
+                usuario["idade"] = idade # This was missing, add if needed in template
+            else:
+                usuario["idade"] = "N/A"
         else:
             usuario["idade"] = "N/A"
 
         if usuario["imagemPerfil"]:
             if isinstance(usuario["imagemPerfil"], bytearray):
                 usuario["imagemPerfil"] = bytes(usuario["imagemPerfil"])
-            usuario["imagemPerfil_base64"] = "data:image/png;base64," + base64.b64encode(usuario["imagemPerfil"]).decode('utf-8')
+            usuario["imagemPerfil_base64"] = "data:image/jpeg;base64," + base64.b64encode(usuario["imagemPerfil"]).decode('utf-8')
         else:
             usuario["imagemPerfil_base64"] = None
 
-    nome_usuario = request.session.get("nome_usuario", "Visitante")
+
+    nome_usuario_sessao = request.session.get("nome_usuario", "Visitante")
     swal_message = request.session.pop("swal_message", None)
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    agora_formatado = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
     return templates.TemplateResponse("usuariosListar.html", {
         "request": request,
         "usuarios": usuarios,
-        "hoje": agora,
-        "nome_usuario": nome_usuario,
+        "todos_os_cargos": todos_os_cargos, # Pass cargos to the template
+        "hoje": agora_formatado,
+        "nome_usuario": nome_usuario_sessao, # Ensure this is what you want for 'nome_usuario' in template
+        "user_logged_in": request.session.get("user_logged_in", False), # Pass login status
+        "cargo": logged_in_cargo, # Pass user's own cargo
         "swal_message": swal_message
     })
 
+
+@app.post("/usuario/atualizar_perfil_admin", name="atualizar_usuario_admin")
+async def atualizar_usuario_admin(
+    request: Request,
+    id_usuario: int = Form(...),
+    nome: str = Form(...),
+    genero: Optional[str] = Form(None),
+    dataNascimento: Optional[str] = Form(None), # Expected as YYYY-MM-DD string
+    # cpf: str = Form(...), # CPF should generally not be updatable this way. If needed, add it.
+    email: str = Form(...),
+    telefone: Optional[str] = Form(None),
+    cargo_id: int = Form(...),
+    imagemPerfil: Optional[UploadFile] = File(None),
+    remover_imagem_perfil: Optional[bool] = Form(False), # Checkbox value
+    db: pymysql.Connection = Depends(get_db)
+):
+    if request.session.get("cargo") != 1: # Only Admin
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Acesso Negado",
+            "text": "Você não tem permissão para realizar esta operação."
+        }
+        return RedirectResponse(url="/usuariosListar", status_code=303)
+
+    try:
+        with db.cursor() as cursor:
+            # Check if email (if changed) is already in use by another user
+            cursor.execute("SELECT id_usuario FROM usuario WHERE email = %s AND id_usuario != %s", (email, id_usuario))
+            if cursor.fetchone():
+                request.session["swal_message"] = {
+                    "icon": "error", "title": "Erro na Atualização",
+                    "text": "Este e-mail já está em uso por outro usuário.",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/usuariosListar", status_code=303)
+
+            data_nascimento_sql = None
+            if dataNascimento:
+                try:
+                    data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+                except ValueError:
+                    # Handle invalid date format if necessary, or let DB handle it
+                    pass
+            
+            imagem_bytes_db = None
+            update_image_sql_part = ""
+
+            if remover_imagem_perfil:
+                imagem_bytes_db = None
+                update_image_sql_part = ", imagemPerfil = %s"
+            elif imagemPerfil and imagemPerfil.filename:
+                # Check file size (example: max 5MB)
+                if imagemPerfil.size > 5 * 1024 * 1024:
+                    request.session["swal_message"] = {
+                        "icon": "error", "title": "Erro na Atualização",
+                        "text": "A imagem é muito grande (máximo 5MB).",
+                        "confirmButtonColor": '#d33'}
+                    return RedirectResponse(url="/usuariosListar", status_code=303)
+                
+                imagem_bytes_db = await imagemPerfil.read()
+                update_image_sql_part = ", imagemPerfil = %s"
+            
+            # Construct SQL query
+            # Note: CPF is not included in this update for safety. If it must be updatable, add it carefully.
+            sql_base = """
+                UPDATE usuario SET
+                nome = %s, genero = %s, dataNascimento = %s, email = %s,
+                telefone = %s, cargo_id = %s
+            """
+            params = [nome, genero, data_nascimento_sql, email, telefone, cargo_id]
+
+            if update_image_sql_part: # If image is being updated or removed
+                sql_base += update_image_sql_part
+                params.append(imagem_bytes_db)
+            
+            sql_base += " WHERE id_usuario = %s"
+            params.append(id_usuario)
+            
+            cursor.execute(sql_base, tuple(params))
+            db.commit()
+
+            request.session["swal_message"] = {
+                "icon": "success", "title": "Atualização de Usuário",
+                "text": f"Usuário '{nome}' (ID: {id_usuario}) atualizado com sucesso!",
+                "confirmButtonColor": '#303030'
+            }
+    except pymysql.MySQLError as db_err:
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Erro de Banco de Dados",
+            "text": f"Erro ao atualizar usuário: {db_err}",
+            "confirmButtonColor": '#d33'}
+    except Exception as e:
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Erro na Atualização",
+            "text": f"Erro ao atualizar usuário: {str(e)}",
+            "confirmButtonColor": '#d33'}
+    
+    return RedirectResponse(url="/usuariosListar", status_code=303)
+
+
+@app.post("/usuario/excluir_perfil_admin", name="excluir_usuario_admin")
+async def excluir_usuario_admin(
+    request: Request,
+    id_usuario: int = Form(...),
+    db: pymysql.Connection = Depends(get_db)
+):
+    if request.session.get("cargo") != 1: # Only Admin
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Acesso Negado",
+            "text": "Você não tem permissão para realizar esta operação."
+        }
+        return RedirectResponse(url="/usuariosListar", status_code=303)
+
+    # Prevent admin from deleting themselves (optional safeguard)
+    # current_user_id = request.session.get("id_usuario") # You'd need to store id_usuario in session at login
+    # if current_user_id == id_usuario:
+    #     request.session["swal_message"] = {"icon": "error", "title": "Operação Inválida", "text": "Você não pode excluir sua própria conta."}
+    #     return RedirectResponse(url="/usuariosListar", status_code=303)
+
+    try:
+        with db.cursor() as cursor:
+            # You might want to check for related data before deleting (e.g., if user has cars listed)
+            # For now, direct delete:
+            cursor.execute("DELETE FROM usuario WHERE id_usuario = %s", (id_usuario,))
+            db.commit()
+
+            if cursor.rowcount > 0:
+                request.session["swal_message"] = {
+                    "icon": "success", "title": "Exclusão de Usuário",
+                    "text": f"Usuário ID: {id_usuario} excluído com sucesso.",
+                    "confirmButtonColor": '#303030'
+                }
+            else:
+                request.session["swal_message"] = {
+                    "icon": "warning", "title": "Exclusão de Usuário",
+                    "text": f"Usuário ID: {id_usuario} não encontrado ou já excluído.",
+                    "confirmButtonColor": '#d33'
+                }
+    except pymysql.MySQLError as db_err: # Catch potential foreign key constraint errors, etc.
+        error_text = f"Erro ao excluir usuário: {db_err}"
+        if db_err.args[0] == 1451: # Cannot delete or update a parent row: a foreign key constraint fails
+             error_text = "Não é possível excluir este usuário pois ele possui registros associados (ex: carros cadastrados). Remova os registros associados primeiro."
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Erro de Banco de Dados",
+            "text": error_text,
+            "confirmButtonColor": '#d33'}
+
+    except Exception as e:
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Erro na Exclusão",
+            "text": f"Erro ao excluir usuário: {str(e)}",
+            "confirmButtonColor": '#d33'}
+            
+    return RedirectResponse(url="/usuariosListar", status_code=303)
+
 @app.get("/funcionariosListar", name="funcionariosListar", response_class=HTMLResponse)
-async def listar_funcionarios(request: Request, db=Depends(get_db)):
-    if not request.session.get("user_logged_in") or request.session.get("cargo") not in (1, 2):
+async def listar_usuarios(request: Request, db: pymysql.Connection = Depends(get_db)):
+    if not request.session.get("user_logged_in"): # Basic login check
+        request.session["swal_message"] = {"icon": "warning", "title": "Acesso Negado", "text": "Você precisa estar logado."}
+        return RedirectResponse(url="/login", status_code=303)
+
+    # Admin or Gerente can view this list (as per original code cargo 1 or 2)
+    # However, the original SQL filters for cargo_id = 4 (Usuários/Clientes)
+    # And edit/delete buttons are only for cargo == 1 (Admin)
+    logged_in_cargo = request.session.get("cargo")
+    if logged_in_cargo not in (1, 2): # Assuming Admin (1) or Gerente (2) can access list pages
+        request.session["swal_message"] = {"icon": "error", "title": "Acesso Negado", "text": "Você não tem permissão para ver esta lista."}
         return RedirectResponse(url="/", status_code=303)
 
     with db.cursor() as cursor:
+        # This query specifically lists "Usuários" (Clientes) with cargo_id = 4
         sql = """
                 SELECT U.id_usuario, U.nome, U.genero, U.dataNascimento, U.cpf,
-                U.email, U.telefone, U.imagemPerfil, U.cargo_id, C.nome AS cargo
+                U.email, U.telefone, U.imagemPerfil, U.cargo_id, C.nome AS cargo_nome
                 FROM usuario AS U
                 LEFT JOIN cargo AS C ON U.cargo_id = C.id_cargo
                 WHERE U.cargo_id IN (1, 2, 3)
                 ORDER BY U.nome
                 """
-
-
         cursor.execute(sql)
         usuarios = cursor.fetchall()
 
+    # Fetch all cargos for the edit modal dropdown
+    todos_os_cargos = fetch_all_cargos(db) # You'll need this for the edit modal
+
     hoje = date.today()
     for usuario in usuarios:
+        # ... (your existing age and image processing logic for usuarios) ...
         dt_nasc = usuario["dataNascimento"]
         if dt_nasc:
-            if isinstance(dt_nasc, str):
-                ano, mes, dia = map(int, dt_nasc.split("-"))
-                dt_nasc = date(ano, mes, dia)
+            if isinstance(dt_nasc, str): # Should be date object from DB
+                try:
+                    dt_nasc = datetime.strptime(dt_nasc, "%Y-%m-%d").date()
+                    usuario["dataNascimento"] = dt_nasc # Ensure it's a date object
+                except ValueError:
+                    pass # Keep original if format is unexpected
 
-            idade = hoje.year - dt_nasc.year
-            if (dt_nasc.month, dt_nasc.day) > (hoje.month, hoje.day):
-                idade -= 1
-            usuario["idade"] = idade
+            if isinstance(dt_nasc, date): # Check if it's a date object
+                idade = hoje.year - dt_nasc.year
+                if (dt_nasc.month, dt_nasc.day) > (hoje.month, hoje.day):
+                    idade -= 1
+                usuario["idade"] = idade # This was missing, add if needed in template
+            else:
+                usuario["idade"] = "N/A"
         else:
             usuario["idade"] = "N/A"
 
         if usuario["imagemPerfil"]:
             if isinstance(usuario["imagemPerfil"], bytearray):
                 usuario["imagemPerfil"] = bytes(usuario["imagemPerfil"])
-            usuario["imagemPerfil_base64"] = "data:image/png;base64," + base64.b64encode(usuario["imagemPerfil"]).decode('utf-8')
+            usuario["imagemPerfil_base64"] = "data:image/jpeg;base64," + base64.b64encode(usuario["imagemPerfil"]).decode('utf-8')
         else:
             usuario["imagemPerfil_base64"] = None
 
-    nome_usuario = request.session.get("nome_usuario", "Visitante")
+
+    nome_usuario_sessao = request.session.get("nome_usuario", "Visitante")
     swal_message = request.session.pop("swal_message", None)
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    agora_formatado = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
     return templates.TemplateResponse("funcionariosListar.html", {
         "request": request,
         "usuarios": usuarios,
-        "hoje": agora,
-        "nome_usuario": nome_usuario,
+        "todos_os_cargos": todos_os_cargos, # Pass cargos to the template
+        "hoje": agora_formatado,
+        "nome_usuario": nome_usuario_sessao, # Ensure this is what you want for 'nome_usuario' in template
+        "user_logged_in": request.session.get("user_logged_in", False), # Pass login status
+        "cargo": logged_in_cargo, # Pass user's own cargo
         "swal_message": swal_message
     })
+
+
+@app.post("/funcionarios/atualizar_perfil_admin", name="atualizar_funcionario_admin")
+async def atualizar_usuario_admin(
+    request: Request,
+    id_usuario: int = Form(...),
+    nome: str = Form(...),
+    genero: Optional[str] = Form(None),
+    dataNascimento: Optional[str] = Form(None), # Expected as YYYY-MM-DD string
+    # cpf: str = Form(...), # CPF should generally not be updatable this way. If needed, add it.
+    email: str = Form(...),
+    telefone: Optional[str] = Form(None),
+    cargo_id: int = Form(...),
+    imagemPerfil: Optional[UploadFile] = File(None),
+    remover_imagem_perfil: Optional[bool] = Form(False), # Checkbox value
+    db: pymysql.Connection = Depends(get_db)
+):
+    if request.session.get("cargo") != 1: # Only Admin
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Acesso Negado",
+            "text": "Você não tem permissão para realizar esta operação."
+        }
+        return RedirectResponse(url="/funcionariosListar", status_code=303)
+
+    try:
+        with db.cursor() as cursor:
+            # Check if email (if changed) is already in use by another user
+            cursor.execute("SELECT id_usuario FROM usuario WHERE email = %s AND id_usuario != %s", (email, id_usuario))
+            if cursor.fetchone():
+                request.session["swal_message"] = {
+                    "icon": "error", "title": "Erro na Atualização",
+                    "text": "Este e-mail já está em uso por outro usuário.",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/funcionariosListar", status_code=303)
+
+            data_nascimento_sql = None
+            if dataNascimento:
+                try:
+                    data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+                except ValueError:
+                    # Handle invalid date format if necessary, or let DB handle it
+                    pass
+            
+            imagem_bytes_db = None
+            update_image_sql_part = ""
+
+            if remover_imagem_perfil:
+                imagem_bytes_db = None
+                update_image_sql_part = ", imagemPerfil = %s"
+            elif imagemPerfil and imagemPerfil.filename:
+                # Check file size (example: max 5MB)
+                if imagemPerfil.size > 5 * 1024 * 1024:
+                    request.session["swal_message"] = {
+                        "icon": "error", "title": "Erro na Atualização",
+                        "text": "A imagem é muito grande (máximo 5MB).",
+                        "confirmButtonColor": '#d33'}
+                    return RedirectResponse(url="/funcionariosListar", status_code=303)
+                
+                imagem_bytes_db = await imagemPerfil.read()
+                update_image_sql_part = ", imagemPerfil = %s"
+            
+            # Construct SQL query
+            # Note: CPF is not included in this update for safety. If it must be updatable, add it carefully.
+            sql_base = """
+                UPDATE usuario SET
+                nome = %s, genero = %s, dataNascimento = %s, email = %s,
+                telefone = %s, cargo_id = %s
+            """
+            params = [nome, genero, data_nascimento_sql, email, telefone, cargo_id]
+
+            if update_image_sql_part: # If image is being updated or removed
+                sql_base += update_image_sql_part
+                params.append(imagem_bytes_db)
+            
+            sql_base += " WHERE id_usuario = %s"
+            params.append(id_usuario)
+            
+            cursor.execute(sql_base, tuple(params))
+            db.commit()
+
+            request.session["swal_message"] = {
+                "icon": "success", "title": "Atualização de Usuário",
+                "text": f"Usuário '{nome}' (ID: {id_usuario}) atualizado com sucesso!",
+                "confirmButtonColor": '#303030'
+            }
+    except pymysql.MySQLError as db_err:
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Erro de Banco de Dados",
+            "text": f"Erro ao atualizar usuário: {db_err}",
+            "confirmButtonColor": '#d33'}
+    except Exception as e:
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Erro na Atualização",
+            "text": f"Erro ao atualizar usuário: {str(e)}",
+            "confirmButtonColor": '#d33'}
+    
+    return RedirectResponse(url="/funcionariosListar", status_code=303)
+
+
+@app.post("/funcionarios/excluir_perfil_admin", name="excluir_funcionarios_admin")
+async def excluir_usuario_admin(
+    request: Request,
+    id_usuario: int = Form(...),
+    db: pymysql.Connection = Depends(get_db)
+):
+    if request.session.get("cargo") != 1: # Only Admin
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Acesso Negado",
+            "text": "Você não tem permissão para realizar esta operação."
+        }
+        return RedirectResponse(url="/funcionariosListar", status_code=303)
+
+    # Prevent admin from deleting themselves (optional safeguard)
+    # current_user_id = request.session.get("id_usuario") # You'd need to store id_usuario in session at login
+    # if current_user_id == id_usuario:
+    #     request.session["swal_message"] = {"icon": "error", "title": "Operação Inválida", "text": "Você não pode excluir sua própria conta."}
+    #     return RedirectResponse(url="/usuariosListar", status_code=303)
+
+    try:
+        with db.cursor() as cursor:
+            # You might want to check for related data before deleting (e.g., if user has cars listed)
+            # For now, direct delete:
+            cursor.execute("DELETE FROM usuario WHERE id_usuario = %s", (id_usuario,))
+            db.commit()
+
+            if cursor.rowcount > 0:
+                request.session["swal_message"] = {
+                    "icon": "success", "title": "Exclusão de Usuário",
+                    "text": f"Usuário ID: {id_usuario} excluído com sucesso.",
+                    "confirmButtonColor": '#303030'
+                }
+            else:
+                request.session["swal_message"] = {
+                    "icon": "warning", "title": "Exclusão de Usuário",
+                    "text": f"Usuário ID: {id_usuario} não encontrado ou já excluído.",
+                    "confirmButtonColor": '#d33'
+                }
+    except pymysql.MySQLError as db_err: # Catch potential foreign key constraint errors, etc.
+        error_text = f"Erro ao excluir usuário: {db_err}"
+        if db_err.args[0] == 1451: # Cannot delete or update a parent row: a foreign key constraint fails
+             error_text = "Não é possível excluir este usuário pois ele possui registros associados (ex: carros cadastrados). Remova os registros associados primeiro."
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Erro de Banco de Dados",
+            "text": error_text,
+            "confirmButtonColor": '#d33'}
+
+    except Exception as e:
+        request.session["swal_message"] = {
+            "icon": "error", "title": "Erro na Exclusão",
+            "text": f"Erro ao excluir usuário: {str(e)}",
+            "confirmButtonColor": '#d33'}
+            
+    return RedirectResponse(url="/funcionariosListar", status_code=303)
 
 @app.get("/carrosListar", name="carrosListar", response_class=HTMLResponse)
 async def listar_carros(request: Request, db=Depends(get_db)):
