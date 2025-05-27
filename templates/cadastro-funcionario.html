@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Cadastro de Funcionário</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/custom.css" />
+    <style>
+        /* Fundo da página cinza claro */
+        body {
+            background-color: #eeeeee;
+        }
+        /* Estiliza o círculo de preview da imagem */
+        #imgPreviewFuncionario { /* ID modificado para não conflitar com outros forms */
+            width: 100px;
+            height: 100px;
+            border: 1px solid #dee2e6;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        a.link-custom {
+          color: #000;
+        }
+
+        a.link-custom:hover {
+          text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="d-flex flex-column min-vh-100">
+    <div class="container">{% include 'geral/menu.html' %}</div>
+    <div class="container py-5">
+      <h1 class="text-center mb-4">Cadastro de Funcionário</h1>
+
+      <form id="formFuncionario" action="/cadastrofuncionario" method="POST" enctype="multipart/form-data" class="mb-5">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="nome" class="form-label">Nome Completo</label>
+                    <input type="text" class="form-control" id="nome" name="nome" placeholder="Digite o nome completo do funcionário" required>
+                </div>
+                <div class="mb-3">
+                    <label for="genero" class="form-label">Gênero</label>
+                    <select class="form-control py-2" id="genero" name="genero" required> {# CLASSE ALTERADA AQUI #}
+                        <option value="" disabled selected>Selecione o gênero</option>
+                        <option value="Masculino">Masculino</option>
+                        <option value="Feminino">Feminino</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="dataNascimento" class="form-label">Data de Nascimento</label>
+                    <input type="date" class="form-control" id="dataNascimento" name="dataNascimento" placeholder="dd/mm/aaaa" required>
+                </div>
+                <div class="mb-3">
+                    <label for="cpf" class="form-label">CPF</label>
+                    <input type="text" class="form-control" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14" required>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">E-mail</label>
+                    <input type="email" class="form-control" id="email" name="email" placeholder="email@exemplo.com" required>
+                </div>
+                <div class="mb-3">
+                    <label for="telefone" class="form-label">Telefone</label>
+                    <input type="tel" class="form-control" id="telefone" name="telefone" placeholder="(XX) XXXXX-XXXX" maxlength="15" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">Foto do Funcionário</label>
+                    <div class="d-flex align-items-center">
+                        <img id="imgPreviewFuncionario" src="" alt="Prévia da Imagem">
+                        <label for="file-upload-funcionario" class="btn btn-dark ms-3 mb-0">Escolher Imagem</label>
+                        <input type="file" id="file-upload-funcionario" accept="image/*" name="imagem_funcionario" style="display: none;">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="cargo" class="form-label">Cargo</label>
+                    <select id="cargo" name="cargo" class="form-control py-2" required> {# CLASSE ALTERADA AQUI #}
+                      <option value="" disabled selected>Selecione o cargo</option>
+                      {# Populado via Jinja2 no FastAPI (exemplo) #}
+                      {% for cargo in cargos %}
+                        <option value="{{ cargo.id_cargo }}">{{ cargo.nome_cargo }}</option>
+                      {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-dark px-4">Cadastrar Funcionário</button>
+      </form>
+    </div>
+
+    <footer class="mt-auto">{% include 'geral/rodape.html' %}</footer>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/static/js/alertas.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const botaoCor = '#1a1a1a';
+        const form = document.getElementById('formFuncionario');
+
+        function erroAlerta(msg) {
+            Swal.fire({ icon: 'error', title: 'Erro', text: msg, confirmButtonColor: botaoCor });
+        }
+
+        function sucessoAlerta(msg) {
+            Swal.fire({ icon: 'success', title: 'Sucesso!', text: msg, confirmButtonColor: botaoCor });
+        }
+
+        // Máscara para CPF
+        document.getElementById('cpf').addEventListener('input', function (e) {
+            let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não é dígito
+            if (value.length > 9) {
+                value = value.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+            } else if (value.length > 6) {
+                value = value.replace(/^(\d{3})(\d{3})(\d{3})$/, '$1.$2.$3');
+            } else if (value.length > 3) {
+                value = value.replace(/^(\d{3})(\d{3})$/, '$1.$2');
+            } else if (value.length > 0) {
+                value = value.replace(/^(\d{3})$/, '$1');
+            }
+            e.target.value = value;
+        });
+
+        // Máscara para Telefone
+        document.getElementById('telefone').addEventListener('input', function (e) {
+            let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não é dígito
+            if (value.length > 10) { // Telefone com 9 dígitos (celular)
+                value = value.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3');
+            } else if (value.length > 5) { // Telefone com 8 dígitos (fixo)
+                value = value.replace(/^(\d{2})(\d{4})(\d{4}).*/, '($1) $2-$3');
+            } else if (value.length > 2) {
+                value = value.replace(/^(\d{2})(\d{0,5}).*/, '($1) $2');
+            }
+            e.target.value = value;
+        });
+
+        // Prévia da imagem
+        document.getElementById('file-upload-funcionario').addEventListener('change', function(event) {
+            const [file] = event.target.files;
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('imgPreviewFuncionario').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const camposObrigatorios = ['nome', 'genero', 'cpf', 'dataNascimento', 'telefone', 'email', 'cargo'];
+            let valido = true;
+            let erros = [];
+
+            camposObrigatorios.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el || !el.value) {
+                    valido = false;
+                    erros.push(`${id.charAt(0).toUpperCase() + id.slice(1)} é obrigatório`);
+                }
+            });
+
+            // Validação de CPF
+            const cpf = document.getElementById('cpf').value.replace(/\D/g, '');
+            if (cpf.length !== 11) {
+                valido = false;
+                erros.push('CPF inválido (deve conter 11 dígitos)');
+            }
+
+            // Validação de e-mail simples
+            const email = document.getElementById('email').value;
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                valido = false;
+                erros.push('E-mail inválido');
+            }
+
+            // Validação de Data de Nascimento (apenas para garantir que não é no futuro ou muito antiga)
+            const dataNascimentoStr = document.getElementById('dataNascimento').value;
+            const dataNascimento = new Date(dataNascimentoStr);
+            const dataAtual = new Date();
+            const anoMinimo = dataAtual.getFullYear() - 100; // Pessoa com no máximo 100 anos
+            const anoMaximo = dataAtual.getFullYear() - 16;  // Pessoa com no mínimo 16 anos
+
+            if (dataNascimento > dataAtual || dataNascimento.getFullYear() < anoMinimo || dataNascimento.getFullYear() > anoMaximo) {
+                valido = false;
+                erros.push('Data de Nascimento inválida. Verifique se está entre 16 e 100 anos atrás.');
+            }
+
+            if (!valido) {
+                erroAlerta(erros.join(', '));
+                return;
+            }
+
+            sucessoAlerta('Funcionário cadastrado com sucesso!');
+
+            setTimeout(() => {
+                form.submit(); // Envia o formulário após o alerta de sucesso
+            }, 500);
+        });
+    });
+    </script>
+
+    {% if swal_message %}
+    <script>
+        Swal.fire({
+            icon: "{{ swal_message.icon }}",
+            title: "{{ swal_message.title }}",
+            text: "{{ swal_message.text }}",
+            confirmButtonColor: "{{ swal_message.confirmButtonColor }}"
+        });
+    </script>
+    {% endif %}
+</body>
+</html>

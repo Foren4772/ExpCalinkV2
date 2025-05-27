@@ -446,6 +446,10 @@ async def criar_usuario(
 async def vender_carro_intro(request: Request):
     return templates.TemplateResponse("vender.html", {"request": request})
 
+@app.get("/cadastro-funcionario", response_class=HTMLResponse)
+async def cadastrafuncionario(request: Request):
+    return templates.TemplateResponse("cadastro-funcionario.html", {"request": request})
+
 
 # --- ROTA PARA CADASTRO DE CARRO (NOVA OU CORRIGIDA) ---
 @app.get("/cadastrocarro", response_class=HTMLResponse)
