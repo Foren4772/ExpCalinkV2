@@ -42,7 +42,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "PUC@1234",
+    "password": "Lord@cat20",
     "database": "carlink"
 }
 
@@ -160,8 +160,8 @@ async def criar_funcionario_post(
             if imagem_funcionario and imagem_funcionario.filename and imagem_funcionario.size > 0:
                 # Opcional: Validar tamanho do arquivo aqui
                 # if imagem_funcionario.size > 5 * 1024 * 1024: # Ex: 5MB
-                #     request.session["swal_message"] = {"icon": "error", "title": "Erro", "text": "Imagem muito grande."}
-                #     return RedirectResponse(url="/cadastro-funcionario", status_code=303)
+                #    request.session["swal_message"] = {"icon": "error", "title": "Erro", "text": "Imagem muito grande."}
+                #    return RedirectResponse(url="/cadastro-funcionario", status_code=303)
                 imagem_bytes = await imagem_funcionario.read()
 
             data_nascimento_sql = None
@@ -401,7 +401,7 @@ async def criar_usuario(
     email: str = Form(...),
     telefone: Optional[str] = Form(None),
     senha: str = Form(...),
-    cargo_id: Optional[int] = Form(2), # Defino o default como 2 (usuário comum)
+    cargo_id: Optional[int] = Form(4), # Defino o default como 2 (usuário comum)
     imagemPerfil: UploadFile = File(None),
     db = Depends(get_db)
 ):
@@ -456,7 +456,7 @@ async def criar_usuario(
             # Para simplificar, vou manter que o cargo_id será 2 para qualquer cadastro nesta rota,
             # a menos que o admin, ao usar esta mesma tela, explicitamente envie outro cargo_id.
             # Considerando que a restrição de admin foi removida, o default é 2.
-            final_cargo_id = cargo_id if request.session.get("cargo") == 1 else 2
+            final_cargo_id = cargo_id if request.session.get("cargo") == 1 else 4
 
 
             sql = """
@@ -538,7 +538,7 @@ async def criar_usuario(
     email: str = Form(...),
     telefone: Optional[str] = Form(None),
     senha: str = Form(...),
-    cargo_id: Optional[int] = Form(2), # Default para usuário comum
+    cargo_id: Optional[int] = Form(4), # Default para usuário comum
     imagemPerfil: UploadFile = File(None), # Parâmetro do arquivo de imagem
     db = Depends(get_db)
 ):
@@ -576,7 +576,7 @@ async def criar_usuario(
                 data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
 
             # Define o cargo_id (mantém o default 2 se não for admin logado)
-            final_cargo_id = cargo_id if request.session.get("cargo") == 1 else 2
+            final_cargo_id = cargo_id if request.session.get("cargo") == 1 else 4
 
             sql = """
                 INSERT INTO usuario
@@ -616,7 +616,13 @@ async def criar_usuario(
 # --- Rota para a página /vender (NOVA OU ATUALIZADA) ---
 @app.get("/vender", response_class=HTMLResponse)
 async def vender_carro_intro(request: Request):
-    return templates.TemplateResponse("vender.html", {"request": request})
+    nome_usuario = request.session.get("nome_usuario")
+    if not nome_usuario:
+        return RedirectResponse("/login", status_code=303)  # Redireciona para login se não estiver logado
+    return templates.TemplateResponse("vender.html", {
+        "request": request,
+        "nome_usuario": nome_usuario
+    })
 
 
 

@@ -34,7 +34,7 @@
     <div class="container py-5">
       <h1 class="text-center mb-4">Cadastro de Funcionário</h1>
 
-      <form id="formFuncionario" action="/cadastrofuncionario" method="POST" enctype="multipart/form-data" class="mb-5" novalidate>
+      <form id="formFuncionario" action="/cadastro-funcionario" method="POST" enctype="multipart/form-data" class="mb-5" novalidate>
         <div class="row">
             <div class="col-md-6">
                 <div class="mb-3">
@@ -95,19 +95,6 @@
                     </div>
                     <div class="invalid-feedback" id="imagem-feedback" style="display: none;">
                         Por favor, escolha uma imagem.
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label for="cargo" class="form-label">Cargo</label>
-                    <select id="cargo" name="cargo" class="form-select py-2" required>
-                      <option value="" disabled selected>Selecione o cargo</option>
-                      {# Populado via Jinja2 no FastAPI (exemplo) #}
-                      {% for cargo in cargos %}
-                        <option value="{{ cargo.id_cargo }}">{{ cargo.nome }}</option> {# Corrigido para 'nome' em vez de 'nome_cargo' baseado na rota de usuário #}
-                      {% endfor %}
-                    </select>
-                    <div class="invalid-feedback">
-                        Por favor, selecione o cargo.
                     </div>
                 </div>
             </div>
