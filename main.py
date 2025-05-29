@@ -617,11 +617,17 @@ async def criar_usuario(
 @app.get("/vender", response_class=HTMLResponse)
 async def vender_carro_intro(request: Request):
     nome_usuario = request.session.get("nome_usuario")
-    if not nome_usuario:
-        return RedirectResponse("/login", status_code=303)  # Redireciona para login se não estiver logado
+    
+    # Define user_logged_in com base na presença de nome_usuario
+    user_logged_in = bool(nome_usuario) # Isso será True ou False
+
+    if not user_logged_in: # Você pode usar essa mesma variável para o redirecionamento
+        return RedirectResponse("/login", status_code=303)
+        
     return templates.TemplateResponse("vender.html", {
         "request": request,
-        "nome_usuario": nome_usuario
+        "nome_usuario": nome_usuario,
+        "user_logged_in": user_logged_in # <<< ADICIONE ESTA LINHA!
     })
 
 
