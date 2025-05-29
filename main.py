@@ -42,7 +42,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "Lord@cat20",
+    "password": "PUC@1234",
     "database": "carlink"
 }
 
