@@ -47,14 +47,19 @@ DB_CONFIG = {
 }
 
 # Função para obter conexão com MySQL
-def get_db():
+async def get_db():
     connection = None
     try:
+        # Abre a conexão com o banco de dados.
+        # O cursorclass=pymysql.cursors.DictCursor é ótimo para retornar resultados como dicionários.
         connection = pymysql.connect(**DB_CONFIG, cursorclass=pymysql.cursors.DictCursor)
-        yield connection
+        yield connection # Esta linha "entrega" a conexão para a sua rota FastAPI
+
     finally:
-        if connection:
-            connection.close()
+        # Esta parte é executada automaticamente pelo FastAPI quando a requisição termina.
+        # Ela garante que a conexão seja fechada.
+        if connection: # Verifica se a conexão foi estabelecida antes de tentar fechar
+            connection.close() # Fecha a conexão com o banco de dados
 
 # ... (seus imports e configurações existentes) ...
 
@@ -669,27 +674,38 @@ async def cadastro_carro_form(request: Request, db=Depends(get_db)):
 
     # VERIFICA SE ESTÁ LOGADO
     if not nome_usuario:
-        return RedirectResponse(url="/", status_code=302)
+        # Se não estiver logado, redireciona para a página de login
+        # Use o status_code 302 para "Found" ou 303 para "See Other"
+        return RedirectResponse(url="/login", status_code=302)
 
-    with db.cursor() as cursor:
-        cursor.execute("""
-            SELECT modelo.id_modelo, modelo.nome AS modelo_nome, marca.nome AS marca_nome
-            FROM modelo
-            JOIN marca ON modelo.fk_id_marca = marca.id_marca
-            ORDER BY marca.nome, modelo.nome
-        """)
-        modelos = cursor.fetchall()
+    marcas = [] # Inicializa a lista de marcas
+    try:
+        # Usamos DictCursor para que os resultados venham como dicionários,
+        # o que facilita o acesso por nome da coluna no template Jinja2.
+        with db.cursor(pymysql.cursors.DictCursor) as cursor:
+            # Buscar apenas as marcas para o primeiro select
+            cursor.execute("SELECT id_marca, nome FROM marca ORDER BY nome")
+            marcas = cursor.fetchall()
+    except Exception as e:
+        print(f"Erro ao buscar marcas do banco de dados: {e}")
+        # Opcional: Adicionar uma mensagem de erro na sessão para exibir ao usuário
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro ao Carregar",
+            "text": "Não foi possível carregar as marcas de carro. Tente novamente mais tarde.",
+            "confirmButtonColor": '#d33'
+        }
 
-    swal_message = request.session.pop("swal_message", None)  # pega e remove da sessão
+    swal_message = request.session.pop("swal_message", None) # Pega e remove a mensagem da sessão
 
     return templates.TemplateResponse("cadastrocarro.html", {
         "request": request,
         "nome_usuario": nome_usuario,
-        "modelos": modelos,
-        "swal_message": swal_message  # passa para o template
+        "marcas": marcas, # <<< AGORA PASSAMOS AS MARCAS CORRETAMENTE AQUI!
+        "swal_message": swal_message # Passa a mensagem para o template
     })
 
-
+# --- ROTA PARA CADASTRAR UM CARRO (POST) ---
 @app.post("/cadastrocarro", name="cadastrocarro_post")
 async def cadastrar_carro(
     request: Request,
@@ -714,7 +730,7 @@ async def cadastrar_carro(
         if imagem and imagem.filename:
             foto_bytes = await imagem.read()
 
-        with db.cursor() as cursor:
+        with db.cursor() as cursor: # Aqui, um cursor padrão pode ser suficiente se você só estiver inserindo
             sql = """
                 INSERT INTO Carro (
                     fk_id_modelo, Ano, Placa, Renavam, Chassi, Cor, Motor,
@@ -734,6 +750,7 @@ async def cadastrar_carro(
             "text": "Carro cadastrado com sucesso!",
             "confirmButtonColor": '#303030'
         }
+        # Redireciona para a mesma página para mostrar a mensagem de sucesso e limpar o formulário
         return RedirectResponse(url="/cadastrocarro", status_code=303)
 
     except Exception as e:
@@ -745,8 +762,23 @@ async def cadastrar_carro(
         }
         return RedirectResponse(url="/cadastrocarro", status_code=303)
 
-    finally:
-        db.close()
+# --- NOVA ROTA DE API PARA MODELOS POR MARCA ---
+@app.get("/api/modelos/{marca_id}", response_class=JSONResponse) # Retorna JSON
+async def get_modelos_by_marca(marca_id: int, db=Depends(get_db)):
+    modelos = []
+    try:
+        with db.cursor(pymysql.cursors.DictCursor) as cursor: # Use DictCursor para JSON
+            cursor.execute(
+                "SELECT id_modelo, nome FROM modelo WHERE fk_id_marca = %s ORDER BY nome",
+                (marca_id,)
+            )
+            modelos = cursor.fetchall()
+    except Exception as e:
+        print(f"Erro ao buscar modelos para marca {marca_id}: {e}")
+        # Em caso de erro na API, retorne um status de erro apropriado
+        return JSONResponse(content={"error": "Erro ao carregar modelos."}, status_code=500)
+     # Fechar a conexão com o banco de dados
+    return modelos # Retorna a lista de dicionários, que FastAPI serializa para JSON
 
 @app.get("/comprar", response_class=HTMLResponse)
 async def comprar_carro(
