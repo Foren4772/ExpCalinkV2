@@ -2,7 +2,7 @@ import pymysql
 import base64
 
 from mangum import Mangum
-from fastapi import FastAPI, Request, Form, File, UploadFile, Depends, HTTPException
+from fastapi import FastAPI, Request, Form, File, UploadFile, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -11,7 +11,7 @@ from datetime import date, datetime
 from typing import Optional, List, Dict, Any
 
 
-#a
+
 
 app = FastAPI()
 
@@ -42,7 +42,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "PUC@1234",
+    "password": "Lord@cat20",
     "database": "carlink"
 }
 
@@ -258,22 +258,22 @@ async def login(
     db = Depends(get_db)
 ):
     try:
-        with db.cursor() as cursor:
+        with db.cursor(pymysql.cursors.DictCursor) as cursor:
+            # Não precisamos mais selecionar imagemPerfil ou imagemPerfil_mime_type aqui!
             cursor.execute("SELECT id_usuario, nome, cargo_id FROM usuario WHERE email = %s AND senha = MD5(%s)", (Login, Senha))
             user = cursor.fetchone()
 
             if user:
-                # Debug para ver o que vem do banco
-                print("Usuário autenticado:", user)
-
-                # Corrigido: nomes de chave válidos
                 request.session["user_logged_in"] = True
-                request.session["id_usuario"] = user["id_usuario"]
+                request.session["id_usuario"] = user["id_usuario"] # Guarde o ID do usuário na sessão
                 request.session["nome_usuario"] = user["nome"]
                 request.session["cargo"] = user["cargo_id"]
 
-                # Debug para ver a sessão
-                print("Sessão atual:", dict(request.session))
+                # Limpe as variáveis de sessão de imagem para evitar o erro de tamanho
+                request.session.pop("foto_perfil_base64", None)
+                request.session.pop("foto_perfil_mime_type", None)
+
+                print("DEBUG LOGIN: Conteúdo final da sessão (sem imagem):", dict(request.session))
 
                 return RedirectResponse(url="/", status_code=303)
             else:
@@ -284,8 +284,61 @@ async def login(
                     "confirmButtonColor": '#303030'
                 }
                 return RedirectResponse(url="/login", status_code=303)
+    except Exception as e:
+        print(f"DEBUG LOGIN: Erro durante o processo de login: {e}")
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro inesperado",
+            "text": f"Ocorreu um erro: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/login", status_code=303)
     finally:
         pass
+
+# main.py
+
+# ... (suas importações, como Response, Optional, etc.) ...
+
+@app.get("/imagem-perfil/{user_id}")
+async def get_imagem_perfil(user_id: int, db = Depends(get_db)):
+    try:
+        with db.cursor(pymysql.cursors.DictCursor) as cursor:
+            # CORREÇÃO AQUI: Remova 'imagemPerfil_mime_type' da query SQL
+            cursor.execute("SELECT imagemPerfil FROM usuario WHERE id_usuario = %s", (user_id,))
+            user_data = cursor.fetchone()
+
+            if user_data and user_data["imagemPerfil"]:
+                image_bytes = user_data["imagemPerfil"]
+                
+                # A lógica de dedução do tipo MIME deve ser usada, já que a coluna não existe
+                mime_type = "application/octet-stream" # Tipo padrão para dados binários desconhecidos
+                
+                if image_bytes.startswith(b'\x89PNG\r\n\x1a\n'): # Magic number para PNG
+                    mime_type = "image/png"
+                elif image_bytes.startswith(b'\xff\xd8'): # Magic number para JPEG
+                    mime_type = "image/jpeg"
+                elif image_bytes.startswith(b'GIF87a') or image_bytes.startswith(b'GIF89a'): # Magic number para GIF
+                    mime_type = "image/gif"
+                # Adicione mais verificações se precisar de outros formatos
+
+                print(f"DEBUG IMAGEM_PERFIL: Servindo imagem para user_id={user_id}. Tipo MIME deduzido: {mime_type}")
+                return Response(content=image_bytes, media_type=mime_type)
+            
+            # Se não encontrar a imagem para o usuário, você pode retornar uma imagem padrão
+            print(f"DEBUG IMAGEM_PERFIL: Imagem de perfil não encontrada para user_id={user_id}. Servindo padrão ou 404.")
+            
+            from starlette.responses import FileResponse
+            from pathlib import Path
+            default_image_path = Path("static/imagens/default_profile.png") # Certifique-se que este arquivo exista
+            if default_image_path.exists():
+                return FileResponse(default_image_path, media_type="image/png")
+            
+            return Response(status_code=404, content="Imagem de perfil não encontrada ou padrão.")
+
+    except Exception as e:
+        print(f"DEBUG IMAGEM_PERFIL: Erro ao servir imagem para user_id={user_id}: {e}")
+        return Response(status_code=500, content="Erro interno ao carregar imagem.")
 
 @app.get("/logout")
 async def logout(request: Request):

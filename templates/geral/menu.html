@@ -38,19 +38,30 @@
     </div>
     <div class="d-flex align-items-center">
       {% if nome_usuario %}
-      <span class="navbar-text me-2">Olá, {{ nome_usuario }}!</span>
+        <div class="d-flex align-items-center">
+          {# Use o id_usuario para construir a URL da imagem #}
+          {% if request.session.id_usuario %}
+            <img src="/imagem-perfil/{{ request.session.id_usuario }}"
+                 alt="Foto de Perfil"
+                 class="rounded-circle me-2"
+                 style="width: 40px; height: 40px; object-fit: cover;">
+          {% else %}
+            {# Ícone padrão se não houver ID de usuário ou foto #}
+            <i class="fa-solid fa-user-circle fa-2x text-dark me-2"></i>
+          {% endif %}
+          <span class="navbar-text me-2">Olá, {{ nome_usuario }}!</span>
+        </div>
+        {% if request.session.get("cargo") in [1, 2] %}
+          <a class="btn btn-outline-primary ml-2" href="/gerenciar">Gerenciar</a>
+        {% else %}
+          <a class="btn btn-outline-primary ml-2" href="/perfil">Meu Perfil</a>
+        {% endif %}
 
-      {% if request.session.get("cargo") in [1, 2] %}
-      <a class="btn btn-outline-primary ml-2" href="/gerenciar">Gerenciar</a>
+        <a class="btn btn-outline-danger ml-2" href="/logout">Sair</a>
       {% else %}
-      <a class="btn btn-outline-primary ml-2" href="/perfil">Meu Perfil</a>
-      {% endif %}
-
-      <a class="btn btn-outline-danger ml-2" href="/logout">Sair</a>
-      {% else %}
-
-      <a class="btn btn-outline-dark me-2" href="/cadastro-usuario">Cadastrar</a>
-      <a class="btn btn-dark ml-2" href="/login">Entrar</a>
+        {# Links para Cadastrar e Entrar se o usuário não estiver logado #}
+        <a class="btn btn-outline-dark me-2" href="/cadastro-usuario">Cadastrar</a>
+        <a class="btn btn-dark ml-2" href="/login">Entrar</a>
       {% endif %}
     </div>
   </div>
