@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import date, datetime
-from typing import Optional, List 
+from typing import Optional, List, Dict, Any
 
 
 
