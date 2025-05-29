@@ -1350,7 +1350,7 @@ async def medIncluir(request: Request, db=Depends(get_db)):
         "swal_message": swal_message
     })
 
-@app.get("/perfil", response_class=HTMLResponse)
+@app.get("/perfil", response_class=HTMLResponse) #teste jesus
 async def perfil_usuario(request: Request, db=Depends(get_db)):
     id_usuario = request.session.get("id_usuario")
     if not id_usuario:
