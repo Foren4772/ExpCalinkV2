@@ -8,7 +8,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import date, datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List 
+
+
+
 
 app = FastAPI()
 
@@ -39,7 +42,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "Senha@123",
+    "password": "PUC@1234",
     "database": "carlink"
 }
 
@@ -52,6 +55,174 @@ def get_db():
     finally:
         if connection:
             connection.close()
+
+# ... (seus imports e configurações existentes) ...
+
+# Certifique-se de que esta função existe para buscar os cargos
+def fetch_all_cargos(db: pymysql.Connection) -> List[Dict[str, Any]]:
+    with db.cursor() as cursor:
+        # Assumindo que sua tabela de cargos se chama 'cargo' e tem 'id_cargo' e 'nome'
+        cursor.execute("SELECT id_cargo, nome FROM cargo ORDER BY nome")
+        return cursor.fetchall()
+
+# --- ROTA PARA EXIBIR O FORMULÁRIO DE CADASTRO DE FUNCIONÁRIO (GET) ---
+@app.get("/cadastro-funcionario", response_class=HTMLResponse)
+async def cadastrar_funcionario_form(request: Request, db: pymysql.Connection = Depends(get_db)):
+    # Lógica de autorização: Apenas administradores (cargo_id=1) podem acessar esta página
+    logged_in_cargo = request.session.get("cargo")
+    if not request.session.get("user_logged_in") or logged_in_cargo != 1:
+        request.session["swal_message"] = {
+            "icon": "warning",
+            "title": "Acesso Negado",
+            "text": "Você não tem permissão para cadastrar funcionários.",
+            "confirmButtonColor": '#303030'
+        }
+        return RedirectResponse(url="/", status_code=303)
+
+    swal_message = request.session.pop("swal_message", None)
+
+    cargos = []
+    try:
+        cargos = fetch_all_cargos(db)
+        # Filtre os cargos se necessário, por exemplo, não permitir que um admin
+        # cadastre um usuário com cargo de cliente por esta tela.
+        # Exemplo: cargos = [c for c in cargos if c['id_cargo'] in [1, 2, 3]] # Admin, Gerente, Funcionário
+    except Exception as e:
+        print(f"Erro ao buscar cargos para cadastro de funcionário: {e}")
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro",
+            "text": "Erro ao carregar cargos.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
+
+
+    return templates.TemplateResponse("cadastro-funcionario.html", {
+        "request": request,
+        "nome_usuario": request.session.get("nome_usuario"),
+        "user_logged_in": request.session.get("user_logged_in"),
+        "cargo": logged_in_cargo,
+        "swal_message": swal_message,
+        "cargos": cargos # Passa a lista de cargos para o template HTML
+    })
+
+# --- ROTA PARA PROCESSAR O CADASTRO DE FUNCIONÁRIO (POST) ---
+@app.post("/cadastro-funcionario", name="criar_funcionario_post") # Nomeando a rota para referência
+async def criar_funcionario_post(
+    request: Request,
+    nome: str = Form(...),
+    genero: Optional[str] = Form(None),
+    dataNascimento: Optional[str] = Form(None), # Recebe como string "YYYY-MM-DD"
+    cpf: str = Form(...),
+    email: str = Form(...),
+    telefone: Optional[str] = Form(None),
+    cargo: int = Form(...), # O ID do cargo selecionado
+    imagem_funcionario: UploadFile = File(None), # Nome do campo no HTML é 'imagem_funcionario'
+    db: pymysql.Connection = Depends(get_db)
+):
+    # Lógica de autorização: Apenas administradores (cargo_id=1) podem cadastrar funcionários
+    logged_in_cargo = request.session.get("cargo")
+    if not request.session.get("user_logged_in") or logged_in_cargo != 1:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você não tem permissão para cadastrar funcionários.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
+
+    try:
+        with db.cursor() as cursor:
+            # Validação: CPF já cadastrado?
+            cursor.execute("SELECT id_usuario FROM usuario WHERE cpf = %s", (cpf,))
+            if cursor.fetchone():
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Cadastro de Funcionário",
+                    "text": "Erro: Este CPF já está cadastrado!",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/cadastro-funcionario", status_code=303)
+            
+            # Validação: E-mail já cadastrado?
+            cursor.execute("SELECT id_usuario FROM usuario WHERE email = %s", (email,))
+            if cursor.fetchone():
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Cadastro de Funcionário",
+                    "text": "Erro: Este e-mail já está cadastrado!",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/cadastro-funcionario", status_code=303)
+
+            imagem_bytes = None
+            if imagem_funcionario and imagem_funcionario.filename and imagem_funcionario.size > 0:
+                # Opcional: Validar tamanho do arquivo aqui
+                # if imagem_funcionario.size > 5 * 1024 * 1024: # Ex: 5MB
+                #     request.session["swal_message"] = {"icon": "error", "title": "Erro", "text": "Imagem muito grande."}
+                #     return RedirectResponse(url="/cadastro-funcionario", status_code=303)
+                imagem_bytes = await imagem_funcionario.read()
+
+            data_nascimento_sql = None
+            if dataNascimento:
+                try:
+                    data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+                except ValueError:
+                    # Lidar com formato de data inválido, se necessário
+                    request.session["swal_message"] = {
+                        "icon": "error", "title": "Erro", "text": "Formato de data de nascimento inválido."
+                    }
+                    return RedirectResponse(url="/cadastro-funcionario", status_code=303)
+
+            # Inserir o novo funcionário (na tabela 'usuario')
+            # ATENÇÃO: Seu formulário de funcionário não tem campo de SENHA.
+            # Você precisará decidir como a senha será definida para um funcionário.
+            # Opções:
+            # 1. Gerar uma senha aleatória e enviar por e-mail (complexo).
+            # 2. Definir uma senha padrão inicial que o funcionário deve trocar.
+            # 3. Adicionar um campo de senha ao formulário de cadastro de funcionário.
+            # Por enquanto, vou usar uma senha padrão (ex: "carlink123").
+            # Em produção, NUNCA use uma senha padrão como essa.
+            
+            # Use o nome da coluna 'dataNascimento' como está no seu HTML/DB para a data
+            sql = """
+                INSERT INTO usuario
+                (nome, genero, dataNascimento, cpf, email, telefone, senha, cargo_id, imagemPerfil)
+                VALUES (%s, %s, %s, %s, %s, %s, MD5(%s), %s, %s)
+            """
+            
+            # Exemplo de senha padrão (altere conforme sua necessidade)
+            # Ou adicione um campo de senha no HTML e receba com Form(...)
+            senha_padrao = "carlink123" 
+
+            cursor.execute(sql, (
+                nome, genero, data_nascimento_sql, cpf, email,
+                telefone, senha_padrao, cargo, imagem_bytes
+            ))
+            db.commit()
+
+            cursor.execute("SELECT LAST_INSERT_ID() as id_usuario")
+            new_funcionario_id = cursor.fetchone()['id_usuario']
+
+            request.session["swal_message"] = {
+                "icon": "success",
+                "title": "Cadastro de Funcionário",
+                "text": f"Funcionário {nome} (ID: {new_funcionario_id}) cadastrado com sucesso!",
+                "confirmButtonColor": '#303030'
+            }
+            return RedirectResponse(url="/cadastro-funcionario", status_code=303)
+
+    except Exception as e:
+        # Captura qualquer outro erro que possa ocorrer
+        print(f"Erro ao cadastrar funcionário: {e}")
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro ao Cadastrar Funcionário",
+            "text": f"Ocorreu um erro: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/cadastro-funcionario", status_code=303)
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -268,8 +439,9 @@ async def criar_usuario(
 
 
             imagem_bytes = None
-            if imagem and imagem.filename:
-                imagem_bytes = await imagem.read()
+            # Use imagemPerfil, que é o nome do parâmetro da função
+            if imagemPerfil and imagemPerfil.filename: # <-- CORRIGIDO AQUI!
+                imagem_bytes = await imagemPerfil.read() # <-- E AQUI!
 
             data_nascimento_sql = None
             if dataNascimento:
@@ -446,9 +618,6 @@ async def criar_usuario(
 async def vender_carro_intro(request: Request):
     return templates.TemplateResponse("vender.html", {"request": request})
 
-@app.get("/cadastro-funcionario", response_class=HTMLResponse)
-async def cadastrafuncionario(request: Request):
-    return templates.TemplateResponse("cadastro-funcionario.html", {"request": request})
 
 
 # --- ROTA PARA CADASTRO DE CARRO (NOVA OU CORRIGIDA) ---
@@ -1169,61 +1338,36 @@ async def medIncluir(request: Request, db=Depends(get_db)):
         "swal_message": swal_message
     })
 
-@app.post("/medIncluir_exe")
-async def medIncluir_exe(
-    request: Request,
-    Nome: str = Form(...),
-    CRM: str = Form(...),
-    Especialidade: str = Form(...),
-    DataNasc: Optional[str] = Form(None),
-    Imagem: UploadFile = File(None),
-    db=Depends(get_db)
-):
+@app.get("/perfil", response_class=HTMLResponse)
+async def perfil_usuario(request: Request, db=Depends(get_db)):
     if not request.session.get("user_logged_in"):
-        request.session["swal_message"] = {
-            "icon": "warning",
-            "title": "Login Necessário",
-            "text": "Você precisa estar logado para acessar esta página.",
-            "confirmButtonColor": '#303030'
-        }
-        return RedirectResponse(url="/", status_code=303)
-    if request.session.get("cargo") != 1:
-        request.session["swal_message"] = {
-            "icon": "error",
-            "title": "Acesso Negado",
-            "text": "Você não tem permissão para realizar esta operação.",
-            "confirmButtonColor": '#d33'
-        }
-        return RedirectResponse(url="/", status_code=303)
+        return RedirectResponse(url="/vender", status_code=303)
 
-    foto_bytes = None
-    if Imagem and Imagem.filename:
-        foto_bytes = await Imagem.read()
+    nome_usuario = request.session.get("nome_usuario")
 
     try:
         with db.cursor() as cursor:
-            sql = """INSERT INTO Medico (Nome, CRM, ID_Espec, Dt_Nasc, Foto)
-                     VALUES (%s, %s, %s, %s, %s)"""
-            cursor.execute(sql, (Nome, CRM, Especialidade, DataNasc, foto_bytes))
-            db.commit()
+            cursor.execute("SELECT * FROM usuario WHERE nome = %s", (nome_usuario,))
+            usuario = cursor.fetchone()
 
-        request.session["swal_message"] = {
-            "icon": "success",
-            "title": "Inclusão de Novo Médico",
-            "text": "Registro cadastrado com sucesso!",
-            "confirmButtonColor": '#303030'
-        }
+        if not usuario:
+            request.session["swal_message"] = {
+                "icon": "error",
+                "title": "Perfil",
+                "text": "Usuário não encontrado.",
+                "confirmButtonColor": '#d33'
+            }
+            return RedirectResponse(url="/", status_code=303)
+
+        # Aqui só renderiza o perfil.html
+        return templates.TemplateResponse("perfil.html", {
+            "request": request,
+            "usuario": usuario,
+            # aqui opcionalmente pode passar o swal_message e apagar da sessão (se quiser)
+        })
+
     except Exception as e:
-        request.session["swal_message"] = {
-            "icon": "error",
-            "title": "Erro ao Cadastrar",
-            "text": f"Erro ao cadastrar médico: {str(e)}",
-            "confirmButtonColor": '#d33'
-        }
-    finally:
-        pass
-
-    return RedirectResponse(url="/medIncluir", status_code=303)
+        return HTMLResponse(content=f"Erro: {e}", status_code=500)
 
 @app.get("/medExcluir", response_class=HTMLResponse)
 async def med_excluir(request: Request, id: int, db=Depends(get_db)):

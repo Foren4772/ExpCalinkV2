@@ -35,58 +35,81 @@
     <div class="container py-5">
       <h1 class="text-center mb-4">Cadastro de Usuário</h1>
 
-      <form id="cadastroForm" action="/cadastro-usuario" method="POST" enctype="multipart/form-data" class="mb-5">
+      <form id="cadastroForm" action="/cadastro-usuario" method="POST" enctype="multipart/form-data" class="mb-5" novalidate>
         <div class="row">
-                <!-- Coluna da esquerda -->
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label for="nome" class="form-label">Nome</label>
-                        <input type="text" class="form-control" id="nome" name="nome" placeholder="Nome completo" >
+                        <input type="text" class="form-control" id="nome" name="nome" placeholder="Nome completo" required>
+                        <div class="invalid-feedback">
+                            Por favor, digite seu nome.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="genero" class="form-label">Gênero</label>
-                        <select class="form-select" id="genero" name="genero">
-                            <option disabled selected>Selecione</option>
+                        <select class="form-select" id="genero" name="genero" required>
+                            <option value="" disabled selected>Selecione</option>
                             <option>Masculino</option>
                             <option>Feminino</option>
                             <option>Outro</option>
                         </select>
+                        <div class="invalid-feedback">
+                            Por favor, selecione seu gênero.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="nascimento" class="form-label">Data de Nascimento</label>
-                        <input type="date" class="form-control" id="nascimento" name="dataNascimento" placeholder="dd/mm/aaaa" >
+                        <input type="date" class="form-control" id="nascimento" name="dataNascimento" required>
+                        <div class="invalid-feedback">
+                            Por favor, selecione sua data de nascimento.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="cpf" class="form-label">CPF</label>
-                        <input type="text" class="form-control" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14">
+                        <input type="text" class="form-control" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14" required>
+                        <div class="invalid-feedback" id="cpf-feedback">
+                            Por favor, digite um CPF válido.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" placeholder="E-mail" >
+                        <input type="email" class="form-control" id="email" name="email" placeholder="E-mail" required>
+                        <div class="invalid-feedback">
+                            Por favor, digite um e-mail válido.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="telefone" class="form-label">Telefone</label>
-                        <input type="tel" class="form-control" id="telefone" name="telefone" placeholder="(00)00000-0000">
+                        <input type="tel" class="form-control" id="telefone" name="telefone" placeholder="(00)00000-0000" required>
+                        <div class="invalid-feedback" id="telefone-feedback">
+                            Por favor, digite um telefone válido.
+                        </div>
                     </div>
                 </div>
-                <!-- Coluna da direita -->
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="form-label">Imagem</label>
                         <div class="d-flex align-items-center">
-                            <img id="imgPreview" src="" alt="Preview">
-                            <!-- O label aciona o input file oculto -->
-                            <label for="imagem" class="btn btn-dark ms-3 mb-0">Escolher Imagem</label>
-                            <input type="file" id="imagem" accept="image/*" name="imagemPerfil"style="display: none;">
+                            <img id="imgPreview" src="" alt="Preview" style="display: none;"> <label for="imagem" class="btn btn-dark ms-3 mb-0">Escolher Imagem</label>
+                            <input type="file" id="imagem" accept="image/*" name="imagemPerfil" style="display: none;">
+                        </div>
+                        <div class="invalid-feedback" id="imagem-feedback" style="display: none;">
+                          Por favor, escolha uma imagem.
                         </div>
                     </div>
                     <div class="mb-3">
                         <label for="senha1" class="form-label">Senha</label>
-                        <input type="password" class="form-control" id="senha1" name="senha" placeholder="Senha" >
+                        <input type="password" class="form-control" id="senha1" name="senha" placeholder="Senha" required>
+                        <div class="invalid-feedback" id="senha1-feedback">
+                            A senha deve ter entre 8 e 16 caracteres, com maiúscula, número e símbolo.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="senha2" class="form-label">Repetir Senha</label>
-                        <input type="password" class="form-control" id="senha2" placeholder="Senha" >
+                        <input type="password" class="form-control" id="senha2" placeholder="Senha" required>
+                        <div class="invalid-feedback" id="senha2-feedback">
+                            As senhas não coincidem.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <small class="text-muted">A senha deve ter:</small>
@@ -98,34 +121,275 @@
                         </ul>
                     </div>
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="termos">
+                        <input class="form-check-input" type="checkbox" id="termos" required>
                         <label class="form-check-label" for="termos">
                             Concordo com os <a href="#" class="link-custom">Termos de uso</a>.
                         </label>
+                        <div class="invalid-feedback" id="termos-feedback">
+                            Você deve concordar com os Termos de uso.
+                        </div>
                     </div>
                 </div>
             </div>
-          <button type="submit" class="btn btn-dark px-4">Cadastrar Usuário</button>
-          <a href="/login" class="link-custom">Já tem conta?</a>
+            <button type="submit" class="btn btn-dark px-4" id="submitButton" disabled>Cadastrar Usuário</button>
+            <a href="/login" class="link-custom">Já tem conta?</a>
         </div>
       </form>
     </div>
 
     <footer class="mt-auto">{% include 'geral/rodape.html' %}</footer>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
     <script src="/static/js/scripts.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="/static/js/alertas.js"></script>
-   
+    
     <script>
         document.getElementById('imagem').addEventListener('change', function(event) {
             const [file] = event.target.files;
+            const imgPreview = document.getElementById('imgPreview');
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    document.getElementById('imgPreview').src = e.target.result;
+                    imgPreview.src = e.target.result;
+                    imgPreview.style.display = 'block'; // Mostra a imagem
                 };
                 reader.readAsDataURL(file);
+            } else {
+                imgPreview.src = '';
+                imgPreview.style.display = 'none'; // Esconde se não houver imagem
+            }
+            validateForm(); // Revalida para ativar/desativar o botão
+        });
+
+        // Aplica as máscaras quando o documento estiver pronto
+        $(document).ready(function(){
+            $('#cpf').mask('000.000.000-00');
+            // Máscara para telefone que se adapta a 9 dígitos (celular) ou 8 dígitos (fixo)
+            var SPMaskBehavior = function (val) {
+              return val.replace(/\D/g, '').length === 11 ? '(00)00000-0000' : '(00)0000-00009';
+            },
+            spOptions = {
+              onKeyPress: function(val, e, field, options) {
+                  field.mask(SPMaskBehavior.apply({}, arguments), options);
+              }
+            };
+            $('#telefone').mask(SPMaskBehavior, spOptions);
+
+            // Chamar a validação inicial para desativar o botão se houver campos vazios
+            validateForm();
+        });
+
+        const form = document.getElementById('cadastroForm');
+        const submitButton = document.getElementById('submitButton');
+
+        // Selecionar todos os campos que precisam de validação
+        const fields = [
+            document.getElementById('nome'),
+            document.getElementById('genero'),
+            document.getElementById('nascimento'),
+            document.getElementById('cpf'),
+            document.getElementById('email'),
+            document.getElementById('telefone'),
+            document.getElementById('senha1'),
+            document.getElementById('senha2'),
+            document.getElementById('termos')
+            // O campo 'imagem' será validado separadamente devido ao seu tipo 'file'
+        ];
+
+        // Função para validar o formato do CPF
+        function validateCPF(cpf) {
+            cpf = cpf.replace(/[^\d]+/g,''); // Remove caracteres não numéricos
+            if(cpf == '') return false;
+            // Elimina CPFs invalidos conhecidos
+            if (cpf.length != 11 ||
+                cpf == "00000000000" ||
+                cpf == "11111111111" ||
+                cpf == "22222222222" ||
+                cpf == "33333333333" ||
+                cpf == "44444444444" ||
+                cpf == "55555555555" ||
+                cpf == "66666666666" ||
+                cpf == "77777777777" ||
+                cpf == "88888888888" ||
+                cpf == "99999999999")
+                return false;
+            // Valida 1o digito
+            add = 0;
+            for (i=0; i < 9; i ++)
+                add += parseInt(cpf.charAt(i)) * (10 - i);
+            rev = 11 - (add % 11);
+            if (rev == 10 || rev == 11)
+                rev = 0;
+            if (rev != parseInt(cpf.charAt(9)))
+                return false;
+            // Valida 2o digito
+            add = 0;
+            for (i = 0; i < 10; i ++)
+                add += parseInt(cpf.charAt(i)) * (11 - i);
+            rev = 11 - (add % 11);
+            if (rev == 10 || rev == 11)
+                rev = 0;
+            if (rev != parseInt(cpf.charAt(10)))
+                return false;
+            return true;
+        }
+
+        // Função para validar a complexidade da senha
+        function validatePasswordComplexity(password) {
+            const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+={}\[\]|;:'",.<>/?`~-]).{8,16}$/;
+            return regex.test(password);
+        }
+
+        // Função principal de validação do formulário
+        function validateForm() {
+            let isValid = true;
+
+            // Validação dos campos 'required' e feedback básico
+            fields.forEach(field => {
+                if (field.id === 'genero') {
+                    if (field.value === "") { // Verifica se a opção "Selecione" ainda está selecionada
+                        field.classList.add('is-invalid');
+                        isValid = false;
+                    } else {
+                        field.classList.remove('is-invalid');
+                        field.classList.add('is-valid');
+                    }
+                } else if (field.type !== 'checkbox') {
+                    if (!field.value.trim()) { // Verifica se o campo está vazio ou só com espaços
+                        field.classList.add('is-invalid');
+                        isValid = false;
+                    } else {
+                        field.classList.remove('is-invalid');
+                        field.classList.add('is-valid');
+                    }
+                }
+            });
+
+            // Validação específica do CPF
+            const cpfInput = document.getElementById('cpf');
+            const cpfValue = cpfInput.value;
+            const cpfFeedback = document.getElementById('cpf-feedback');
+            if (!validateCPF(cpfValue)) {
+                cpfInput.classList.add('is-invalid');
+                cpfFeedback.textContent = "Por favor, digite um CPF válido.";
+                isValid = false;
+            } else {
+                cpfInput.classList.remove('is-invalid');
+                cpfInput.classList.add('is-valid');
+            }
+
+            // Validação específica do Telefone
+            const telefoneInput = document.getElementById('telefone');
+            const telefoneValue = telefoneInput.value.replace(/\D/g, ''); // Remove caracteres não numéricos
+            const telefoneFeedback = document.getElementById('telefone-feedback');
+            // Considerando que um telefone válido tem 10 ou 11 dígitos (DDD + 8/9 dígitos)
+            if (telefoneValue.length < 10 || telefoneValue.length > 11) {
+                telefoneInput.classList.add('is-invalid');
+                telefoneFeedback.textContent = "Por favor, digite um telefone válido com DDD (10 ou 11 dígitos).";
+                isValid = false;
+            } else {
+                telefoneInput.classList.remove('is-invalid');
+                telefoneInput.classList.add('is-valid');
+            }
+
+            // Validação de E-mail
+            const emailInput = document.getElementById('email');
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value)) {
+                emailInput.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                emailInput.classList.remove('is-invalid');
+                emailInput.classList.add('is-valid');
+            }
+
+
+            // Validação da imagem de perfil (opcional, mas se o input file não estiver vazio, valida)
+            const imagemInput = document.getElementById('imagem');
+            const imgPreview = document.getElementById('imgPreview');
+            const imagemFeedback = document.getElementById('imagem-feedback');
+            if (imagemInput.files.length > 0 && !imgPreview.src) { // Se escolheu um arquivo, mas não foi carregado
+                imagemFeedback.style.display = 'block';
+                isValid = false;
+            } else {
+                imagemFeedback.style.display = 'none';
+            }
+
+
+            // Validação das senhas
+            const senha1Input = document.getElementById('senha1');
+            const senha2Input = document.getElementById('senha2');
+            const senha1Feedback = document.getElementById('senha1-feedback');
+            const senha2Feedback = document.getElementById('senha2-feedback');
+
+            // Valida complexidade da senha 1
+            if (!validatePasswordComplexity(senha1Input.value)) {
+                senha1Input.classList.add('is-invalid');
+                senha1Feedback.textContent = "A senha deve ter entre 8 e 16 caracteres, com pelo menos uma maiúscula, um número e um símbolo.";
+                isValid = false;
+            } else {
+                senha1Input.classList.remove('is-invalid');
+                senha1Input.classList.add('is-valid');
+            }
+
+            // Valida se as senhas coincidem (só se ambas estiverem preenchidas e a senha1 for válida)
+            if (senha1Input.value && senha2Input.value) {
+                if (senha1Input.value !== senha2Input.value) {
+                    senha2Input.classList.add('is-invalid');
+                    senha2Feedback.textContent = "As senhas não coincidem.";
+                    isValid = false;
+                } else {
+                    senha2Input.classList.remove('is-invalid');
+                    senha2Input.classList.add('is-valid');
+                }
+            } else if (!senha2Input.value && senha1Input.value) {
+                 // Se senha1 preenchida e senha2 vazia
+                senha2Input.classList.add('is-invalid');
+                senha2Feedback.textContent = "Por favor, repita sua senha.";
+                isValid = false;
+            }
+
+
+            // Validação dos Termos de Uso
+            const termosCheckbox = document.getElementById('termos');
+            const termosFeedback = document.getElementById('termos-feedback');
+            if (!termosCheckbox.checked) {
+                termosCheckbox.classList.add('is-invalid');
+                termosFeedback.style.display = 'block'; // Mostra a mensagem de feedback
+                isValid = false;
+            } else {
+                termosCheckbox.classList.remove('is-invalid');
+                termosCheckbox.classList.add('is-valid');
+                termosFeedback.style.display = 'none'; // Esconde a mensagem
+            }
+
+            // Ativa ou desativa o botão de submit
+            submitButton.disabled = !isValid;
+            return isValid;
+        }
+
+        // Adiciona ouvintes de evento para chamar a validação em tempo real
+        fields.forEach(field => {
+            field.addEventListener('input', validateForm);
+            if (field.type === 'checkbox' || field.tagName === 'SELECT') { // Para checkbox e select, use 'change'
+                 field.addEventListener('change', validateForm);
+            }
+        });
+        document.getElementById('imagem').addEventListener('change', validateForm);
+
+
+        // Impede o envio do formulário se a validação falhar no submit final
+        form.addEventListener('submit', function(event) {
+            form.classList.add('was-validated'); // Adiciona classe para mostrar feedback do Bootstrap
+            if (!validateForm()) {
+                event.preventDefault(); // Impede o envio
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro de Validação',
+                    text: 'Por favor, preencha todos os campos obrigatórios corretamente.',
+                    confirmButtonColor: '#1a1a1a'
+                });
             }
         });
     </script>
