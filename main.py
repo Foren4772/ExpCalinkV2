@@ -42,7 +42,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "PUC@1234",
+    "password": "Lord@cat20",
     "database": "carlink"
 }
 
@@ -496,14 +496,35 @@ async def criar_usuario(
 
 @app.get("/sobre-nos", response_class=HTMLResponse)
 async def sobre_nos(request: Request):
-    return templates.TemplateResponse("sobre-nos.html", {"request": request})
+    nome_usuario = request.session.get("nome_usuario")
+    
+    # Define user_logged_in com base na presença de nome_usuario
+    user_logged_in = bool(nome_usuario) # Isso será True ou False
+
+    if not user_logged_in: # Você pode usar essa mesma variável para o redirecionamento
+        return RedirectResponse("/login", status_code=303)
+        
+    return templates.TemplateResponse("sobre-nos.html", {
+        "request": request,
+        "nome_usuario": nome_usuario,
+        "user_logged_in": user_logged_in # <<< ADICIONE ESTA LINHA!
+    })
 
 @app.get("/politicas", response_class=HTMLResponse)
 async def read_politicas(request: Request):
-    """
-    Rota para exibir a página de políticas de uso e privacidade.
-    """
-    return templates.TemplateResponse("politicas.html", {"request": request})
+    nome_usuario = request.session.get("nome_usuario")
+    
+    # Define user_logged_in com base na presença de nome_usuario
+    user_logged_in = bool(nome_usuario) # Isso será True ou False
+
+    if not user_logged_in: # Você pode usar essa mesma variável para o redirecionamento
+        return RedirectResponse("/login", status_code=303)
+        
+    return templates.TemplateResponse("politicas.html", {
+        "request": request,
+        "nome_usuario": nome_usuario,
+        "user_logged_in": user_logged_in # <<< ADICIONE ESTA LINHA!
+    })
 
 # --- Rota de Cadastro de Carro (GET) - ALTERADA PARA REDIRECIONAR PARA /vender ---
 @app.get("/cadastro-usuario", response_class=HTMLResponse)
