@@ -12,19 +12,16 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-  <style>
-    .menu-centralizado .navbar .container-fluid {
-      justify-content: center !important;
-    }
-  </style>
+
 </head>
 
 <body class="d-flex flex-column min-vh-100">
-  <div class="menu-centralizado">
+  <div class="container">
     {% include 'geral/menu.html' %}
   </div>
 
   <main class="container mt-4 flex-grow-1">
+    <!-- Seção de Destaque -->
     <section class="hero-section text-center py-5 bg-light rounded shadow-sm mb-5">
       <h1 class="display-4 fw-bold text-dark">Encontre o Carro Perfeito para Você</h1>
       <p class="lead text-secondary mx-auto" style="max-width: 800px;">
@@ -32,8 +29,9 @@
       </p>
     </section>
 
+    <!-- Filtros -->
     <section class="filters-section mb-5">
-      <form method="get" action="/comprar" class="row g-3 align-items-end justify-content-center">
+      <form method="get" action="/comprar" class="row g-3 align-items-end justify-content-center" id="filterForm">
         <div class="col-md-3">
           <label for="marca_id" class="form-label fw-semibold">Marca</label>
           <select name="marca_id" id="marca_id" class="form-select" onchange="this.form.submit()">
@@ -56,12 +54,12 @@
 
         <div class="col-md-2">
           <label for="ano_min" class="form-label fw-semibold">Ano Mínimo</label>
-          <input type="number" name="ano_min" id="ano_min" min="1900" max="2100" step="1" class="form-control" value="{{ selected_ano_min or '' }}" onchange="this.form.submit()" />
+          <input type="number" name="ano_min" id="ano_min" min="1900" max="2100" step="1" class="form-control" value="{{ selected_ano_min or '' }}" />
         </div>
 
         <div class="col-md-2">
           <label for="preco_max" class="form-label fw-semibold">Preço Máximo</label>
-          <input type="text" name="preco_max" id="preco_max" placeholder="R$ 50.000,00" class="form-control" value="{{ selected_preco_max_display or '' }}" onchange="this.form.submit()" />
+          <input type="text" name="preco_max" id="preco_max" placeholder="R$ 50.000,00" class="form-control" value="{{ selected_preco_max_display or '' }}" />
         </div>
 
         <div class="col-md-2 d-grid">
@@ -70,6 +68,7 @@
       </form>
     </section>
 
+    <!-- Lista de Carros -->
     <section class="car-list row g-4">
       {% if carros %}
         {% for carro in carros %}
@@ -87,7 +86,9 @@
                   <li><strong>Cor:</strong> {{ carro.Cor }}</li>
                   <li><strong>Potência:</strong> {{ carro.Potencia }} HP</li>
                 </ul>
-                <h4 class="text-success">R$ {{ '{:,.2f}'.format(carro.Preco).replace(',', 'X').replace('.', ',').replace('X', '.')}}</h4>
+                <h4 class="text-success">
+                  R$ {{ '{:,.2f}'.format(carro.Preco).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+                </h4>
               </div>
               <div class="card-footer text-center">
                 <a href="/detalhes/{{ carro.id_carro }}" class="btn btn-outline-primary w-100">Ver Detalhes</a>
@@ -103,22 +104,35 @@
     </section>
   </main>
 
+  <!-- Rodapé -->
   {% include 'geral/rodape.html' %}
 
+  <!-- SweetAlert -->
   {% if swal_message %}
-  <script>
-    Swal.fire({
-      icon: '{{ swal_message.icon }}',
-      title: '{{ swal_message.title }}',
-      html: '{{ swal_message.text | safe }}',
-      confirmButtonColor: '#1a1a1a'
-    });
-  </script>
+    <script>
+      Swal.fire({
+        icon: '{{ swal_message.icon }}',
+        title: '{{ swal_message.title }}',
+        html: '{{ swal_message.text | safe }}',
+        confirmButtonColor: '#1a1a1a'
+      });
+    </script>
   {% endif %}
 
+  <!-- Limpeza de Campos Vazios -->
   <script>
-    // Atualiza a lista de modelos ao mudar a marca (se desejar uma versão mais dinâmica, pode usar JS e AJAX)
-    // Aqui deixei só submit automático, conforme onchange nos selects
+    document.getElementById('filterForm').addEventListener('submit', function(event) {
+      const anoMinInput = document.getElementById('ano_min');
+      const precoMaxInput = document.getElementById('preco_max');
+
+      if (anoMinInput.value === '' || isNaN(parseInt(anoMinInput.value))) {
+        anoMinInput.removeAttribute('name');
+      }
+
+      if (precoMaxInput.value === '') {
+        precoMaxInput.removeAttribute('name');
+      }
+    });
   </script>
 </body>
 </html>

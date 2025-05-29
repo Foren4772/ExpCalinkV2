@@ -783,9 +783,9 @@ async def get_modelos_by_marca(marca_id: int, db=Depends(get_db)):
 @app.get("/comprar", response_class=HTMLResponse)
 async def comprar_carro(
     request: Request,
-    marca_id: Optional[int] = None,
-    modelo_id: Optional[int] = None,
-    ano_min: Optional[int] = None,
+    marca_id: Optional[str] = None,         # Corrigido para str
+    modelo_id: Optional[str] = None,        # Corrigido para str
+    ano_min: Optional[str] = None,
     preco_max: Optional[str] = None,
     db: pymysql.Connection = Depends(get_db)
 ):
@@ -794,6 +794,7 @@ async def comprar_carro(
     query_params = []
     sql_where = []
 
+    # Preço
     preco_max_float = None
     selected_preco_max_display = preco_max
     if preco_max:
@@ -805,17 +806,35 @@ async def comprar_carro(
         except ValueError:
             pass
 
-    if marca_id:
-        sql_where.append("marca.id_marca = %s")
-        query_params.append(marca_id)
+    # Marca
+    marca_id_int = None
+    try:
+        if marca_id and marca_id.strip() != "":
+            marca_id_int = int(marca_id)
+            sql_where.append("marca.id_marca = %s")
+            query_params.append(marca_id_int)
+    except ValueError:
+        pass
 
-    if modelo_id:
-        sql_where.append("modelo.id_modelo = %s")
-        query_params.append(modelo_id)
+    # Modelo
+    modelo_id_int = None
+    try:
+        if modelo_id and modelo_id.strip() != "":
+            modelo_id_int = int(modelo_id)
+            sql_where.append("modelo.id_modelo = %s")
+            query_params.append(modelo_id_int)
+    except ValueError:
+        pass
 
-    if ano_min:
-        sql_where.append("Ano >= %s")
-        query_params.append(ano_min)
+    # Ano
+    ano_min_int = None
+    try:
+     if ano_min and ano_min.strip() != "":
+        ano_min_int = int(ano_min)
+        sql_where.append("carro.ano >= %s")  # <<< aqui está o ajuste
+        query_params.append(ano_min_int)
+    except ValueError:
+        pass
 
     sql_base = """
         SELECT
@@ -860,11 +879,11 @@ async def comprar_carro(
         cursor.execute("SELECT id_marca, nome FROM marca ORDER BY nome")
         marcas = cursor.fetchall()
 
-        if marca_id:
-            cursor.execute("SELECT id_modelo, nome FROM modelo WHERE fk_id_marca = %s ORDER BY nome", (marca_id,))
+        if marca_id_int:
+            cursor.execute("SELECT id_modelo, nome FROM modelo WHERE fk_id_marca = %s ORDER BY nome", (marca_id_int,))
             modelos_filtrados = cursor.fetchall()
 
-    swal_message = request.session.pop("swal_message", None) # Pega e remove a mensagem
+    swal_message = request.session.pop("swal_message", None)
 
     return templates.TemplateResponse("comprar.html", {
         "request": request,
@@ -872,11 +891,11 @@ async def comprar_carro(
         "carros": carros,
         "marcas": marcas,
         "modelos_filtrados": modelos_filtrados,
-        "selected_marca_id": marca_id,
-        "selected_modelo_id": modelo_id,
+        "selected_marca_id": marca_id_int,
+        "selected_modelo_id": modelo_id_int,
         "selected_ano_min": ano_min,
         "selected_preco_max_display": selected_preco_max_display,
-        "swal_message": swal_message # Passa a mensagem para o template
+        "swal_message": swal_message
     })
 
 
