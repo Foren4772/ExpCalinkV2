@@ -1340,34 +1340,200 @@ async def medIncluir(request: Request, db=Depends(get_db)):
 
 @app.get("/perfil", response_class=HTMLResponse)
 async def perfil_usuario(request: Request, db=Depends(get_db)):
-    if not request.session.get("user_logged_in"):
-        return RedirectResponse(url="/vender", status_code=303)
+    id_usuario = request.session.get("id_usuario")
+    if not id_usuario:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você precisa estar logado para acessar seu perfil.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/login", status_code=303) # Redireciona para o login se não estiver logado
 
+    usuario_data = None
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("""
+                SELECT id_usuario, nome, genero, dataNascimento, cpf, email, telefone, imagemPerfil, cargo_id
+                FROM usuario
+                WHERE id_usuario = %s
+            """, (id_usuario,))
+            usuario_data = cursor.fetchone()
+
+            if usuario_data:
+                # Converte o campo BLOB (imagemPerfil) para base64 para exibição no HTML
+                if usuario_data.get("imagemPerfil"):
+                    if isinstance(usuario_data["imagemPerfil"], bytes):
+                        usuario_data["imagem_url"] = "data:image/jpeg;base64," + base64.b64encode(usuario_data["imagemPerfil"]).decode('utf-8')
+                    else:
+                        usuario_data["imagem_url"] = usuario_data["imagemPerfil"]
+                else:
+                    usuario_data["imagem_url"] = "/static/imagens/default_profile.png" # Imagem padrão se não houver
+
+                # Formata a data de nascimento para o formato YYYY-MM-DD para o input type="date"
+                if usuario_data.get("dataNascimento"):
+                    usuario_data["dataNascimento"] = usuario_data["dataNascimento"].strftime("%Y-%m-%d")
+            else:
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Erro",
+                    "text": "Dados do perfil não encontrados. Por favor, faça login novamente.",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/logout", status_code=303)
+
+    except Exception as e:
+        print(f"Erro ao carregar perfil do usuário {id_usuario}: {e}")
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro",
+            "text": f"Erro ao carregar dados do perfil: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/", status_code=303)
+
+    swal_message = request.session.pop("swal_message", None)
     nome_usuario = request.session.get("nome_usuario")
+
+    return templates.TemplateResponse("perfil.html", {
+        "request": request,
+        "usuario": usuario_data,
+        "swal_message": swal_message,
+        "nome_usuario": nome_usuario
+    })
+
+# Rota POST para processar as edições do perfil do usuário
+@app.post("/perfil/editar", name="editar_perfil")
+async def editar_perfil(
+    request: Request,
+    nome: str = Form(...),
+    genero: Optional[str] = Form(None),
+    dataNascimento: Optional[str] = Form(None),
+    email: str = Form(...),
+    telefone: Optional[str] = Form(None),
+    senha: Optional[str] = Form(None), # Senha é opcional
+    imagemPerfil: UploadFile = File(None), # Imagem também é opcional
+    db = Depends(get_db)
+):
+    id_usuario = request.session.get("id_usuario")
+    if not id_usuario:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você precisa estar logado para editar seu perfil.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/login", status_code=303)
 
     try:
         with db.cursor() as cursor:
-            cursor.execute("SELECT * FROM usuario WHERE nome = %s", (nome_usuario,))
-            usuario = cursor.fetchone()
+            # 1. Validação de E-mail: Verificar se o novo e-mail já não está em uso por OUTRO usuário
+            cursor.execute("SELECT id_usuario FROM usuario WHERE email = %s AND id_usuario != %s", (email, id_usuario))
+            if cursor.fetchone():
+                request.session["swal_message"] = {
+                    "icon": "error",
+                    "title": "Edição de Perfil",
+                    "text": "Erro: Este e-mail já está cadastrado por outro usuário!",
+                    "confirmButtonColor": '#d33'
+                }
+                return RedirectResponse(url="/perfil", status_code=303)
 
-        if not usuario:
+            # 2. Processar a imagem de perfil
+            imagem_bytes = None
+            if imagemPerfil and imagemPerfil.filename and imagemPerfil.size > 0:
+                imagem_bytes = await imagemPerfil.read()
+            else: # Se nenhuma nova imagem foi enviada ou o campo estava vazio, tenta manter a existente
+                cursor.execute("SELECT imagemPerfil FROM usuario WHERE id_usuario = %s", (id_usuario,))
+                current_image_data = cursor.fetchone()
+                if current_image_data and current_image_data["imagemPerfil"]:
+                    imagem_bytes = current_image_data["imagemPerfil"]
+
+            # 3. Converter data de nascimento
+            data_nascimento_sql = None
+            if dataNascimento:
+                data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+
+            # 4. Preparar a atualização da senha
+            update_senha_sql = ""
+            senha_param = None
+            if senha:
+                update_senha_sql = ", senha = MD5(%s)"
+                senha_param = senha
+
+            # 5. Construir e executar a query de atualização
+            sql = f"""
+                UPDATE usuario
+                SET nome = %s, genero = %s, dataNascimento = %s, email = %s, telefone = %s, imagemPerfil = %s
+                {update_senha_sql}
+                WHERE id_usuario = %s
+            """
+
+            params = [nome, genero, data_nascimento_sql, email, telefone, imagem_bytes]
+            if senha_param:
+                params.append(senha_param)
+            params.append(id_usuario)
+
+            cursor.execute(sql, tuple(params))
+            db.commit()
+
+            # Atualizar o nome do usuário na sessão, se for o caso
+            request.session["nome_usuario"] = nome
+
             request.session["swal_message"] = {
-                "icon": "error",
-                "title": "Perfil",
-                "text": "Usuário não encontrado.",
-                "confirmButtonColor": '#d33'
+                "icon": "success",
+                "title": "Perfil Atualizado",
+                "text": "Seu perfil foi atualizado com sucesso!",
+                "confirmButtonColor": '#303030'
             }
-            return RedirectResponse(url="/", status_code=303)
-
-        # Aqui só renderiza o perfil.html
-        return templates.TemplateResponse("perfil.html", {
-            "request": request,
-            "usuario": usuario,
-            # aqui opcionalmente pode passar o swal_message e apagar da sessão (se quiser)
-        })
+            return RedirectResponse(url="/perfil", status_code=303)
 
     except Exception as e:
-        return HTMLResponse(content=f"Erro: {e}", status_code=500)
+        print(f"Erro ao editar perfil do usuário {id_usuario}: {e}")
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro na Edição",
+            "text": f"Erro ao atualizar perfil: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/perfil", status_code=303)
+
+# Rota para exclusão de conta (implementação básica)
+@app.get("/perfil/excluir")
+async def excluir_perfil(request: Request, db=Depends(get_db)):
+    id_usuario = request.session.get("id_usuario")
+    if not id_usuario:
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Acesso Negado",
+            "text": "Você precisa estar logado para excluir seu perfil.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/login", status_code=303)
+
+    try:
+        with db.cursor() as cursor:
+            # Você pode querer uma confirmação mais robusta aqui (senha, etc.)
+            cursor.execute("DELETE FROM usuario WHERE id_usuario = %s", (id_usuario,))
+            db.commit()
+
+        request.session.clear()
+        request.session["swal_message"] = {
+            "icon": "success",
+            "title": "Conta Excluída",
+            "text": "Sua conta foi excluída com sucesso.",
+            "confirmButtonColor": '#303030'
+        }
+        return RedirectResponse(url="/", status_code=303)
+
+    except Exception as e:
+        print(f"Erro ao excluir perfil do usuário {id_usuario}: {e}")
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro ao Excluir",
+            "text": f"Erro ao excluir conta: {str(e)}",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/perfil", status_code=303)
 
 @app.get("/medExcluir", response_class=HTMLResponse)
 async def med_excluir(request: Request, id: int, db=Depends(get_db)):
