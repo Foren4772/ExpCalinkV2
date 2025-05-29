@@ -42,7 +42,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "Lord@cat20",
+    "password": "PUC@1234",
     "database": "carlink"
 }
 
@@ -254,13 +254,22 @@ async def login(
 ):
     try:
         with db.cursor() as cursor:
-            cursor.execute("SELECT * FROM usuario WHERE email = %s AND senha = MD5(%s)", (Login, Senha))
+            cursor.execute("SELECT id_usuario, nome, cargo_id FROM usuario WHERE email = %s AND senha = MD5(%s)", (Login, Senha))
             user = cursor.fetchone()
 
             if user:
+                # Debug para ver o que vem do banco
+                print("Usuário autenticado:", user)
+
+                # Corrigido: nomes de chave válidos
                 request.session["user_logged_in"] = True
+                request.session["id_usuario"] = user["id_usuario"]
                 request.session["nome_usuario"] = user["nome"]
                 request.session["cargo"] = user["cargo_id"]
+
+                # Debug para ver a sessão
+                print("Sessão atual:", dict(request.session))
+
                 return RedirectResponse(url="/", status_code=303)
             else:
                 request.session["swal_message"] = {
@@ -1332,47 +1341,11 @@ async def listar_carros(request: Request, db=Depends(get_db)):
     })
 
 
-@app.get("/medIncluir", response_class=HTMLResponse)
-async def medIncluir(request: Request, db=Depends(get_db)):
-    if not request.session.get("user_logged_in"):
-        request.session["swal_message"] = {
-            "icon": "warning",
-            "title": "Login Necessário",
-            "text": "Você precisa estar logado para acessar esta página.",
-            "confirmButtonColor": '#303030'
-        }
-        return RedirectResponse(url="/", status_code=303)
-    if request.session.get("cargo") != 1:
-        request.session["swal_message"] = {
-            "icon": "error",
-            "title": "Acesso Negado",
-            "text": "Você não tem permissão para acessar esta página.",
-            "confirmButtonColor": '#d33'
-        }
-        return RedirectResponse(url="/", status_code=303)
 
-    especialidades = []
-    try:
-        with db.cursor() as cursor:
-            cursor.execute("SELECT ID_Espec, Nome_Espec FROM Especialidade")
-            especialidades = cursor.fetchall()
-    except Exception as e:
-        print(f"Erro ao buscar especialidades: {e}")
-
-    nome_usuario = request.session.get("nome_usuario", None)
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    swal_message = request.session.pop("swal_message", None)
-
-    return templates.TemplateResponse("medIncluir.html", {
-        "request": request,
-        "especialidades": especialidades,
-        "hoje": agora,
-        "nome_usuario": nome_usuario,
-        "swal_message": swal_message
-    })
 
 @app.get("/perfil", response_class=HTMLResponse) #teste jesus
 async def perfil_usuario(request: Request, db=Depends(get_db)):
+    print("Sessão atual:", request.session)
     id_usuario = request.session.get("id_usuario")
     if not id_usuario:
         request.session["swal_message"] = {
@@ -1381,7 +1354,7 @@ async def perfil_usuario(request: Request, db=Depends(get_db)):
             "text": "Você precisa estar logado para acessar seu perfil.",
             "confirmButtonColor": '#d33'
         }
-        return RedirectResponse(url="/login", status_code=303) # Redireciona para o login se não estiver logado
+        return RedirectResponse(url="/login", status_code=303)
 
     usuario_data = None
     try:
@@ -1394,16 +1367,14 @@ async def perfil_usuario(request: Request, db=Depends(get_db)):
             usuario_data = cursor.fetchone()
 
             if usuario_data:
-                # Converte o campo BLOB (imagemPerfil) para base64 para exibição no HTML
                 if usuario_data.get("imagemPerfil"):
                     if isinstance(usuario_data["imagemPerfil"], bytes):
                         usuario_data["imagem_url"] = "data:image/jpeg;base64," + base64.b64encode(usuario_data["imagemPerfil"]).decode('utf-8')
                     else:
                         usuario_data["imagem_url"] = usuario_data["imagemPerfil"]
                 else:
-                    usuario_data["imagem_url"] = "/static/imagens/default_profile.png" # Imagem padrão se não houver
+                    usuario_data["imagem_url"] = "/static/imagens/default_profile.png"
 
-                # Formata a data de nascimento para o formato YYYY-MM-DD para o input type="date"
                 if usuario_data.get("dataNascimento"):
                     usuario_data["dataNascimento"] = usuario_data["dataNascimento"].strftime("%Y-%m-%d")
             else:
@@ -1416,7 +1387,7 @@ async def perfil_usuario(request: Request, db=Depends(get_db)):
                 return RedirectResponse(url="/logout", status_code=303)
 
     except Exception as e:
-        print(f"Erro ao carregar perfil do usuário {id_usuario}: {e}")
+        print(f"Erro ao carregar perfil: {e}")
         request.session["swal_message"] = {
             "icon": "error",
             "title": "Erro",
@@ -1435,8 +1406,7 @@ async def perfil_usuario(request: Request, db=Depends(get_db)):
         "nome_usuario": nome_usuario
     })
 
-# Rota POST para processar as edições do perfil do usuário
-@app.post("/perfil/editar", name="editar_perfil")
+@app.post("/perfil/editar")
 async def editar_perfil(
     request: Request,
     nome: str = Form(...),
@@ -1444,9 +1414,9 @@ async def editar_perfil(
     dataNascimento: Optional[str] = Form(None),
     email: str = Form(...),
     telefone: Optional[str] = Form(None),
-    senha: Optional[str] = Form(None), # Senha é opcional
-    imagemPerfil: UploadFile = File(None), # Imagem também é opcional
-    db = Depends(get_db)
+    senha: Optional[str] = Form(None),
+    imagemPerfil: UploadFile = File(None),
+    db=Depends(get_db)
 ):
     id_usuario = request.session.get("id_usuario")
     if not id_usuario:
@@ -1460,7 +1430,7 @@ async def editar_perfil(
 
     try:
         with db.cursor() as cursor:
-            # 1. Validação de E-mail: Verificar se o novo e-mail já não está em uso por OUTRO usuário
+            # Validação de e-mail duplicado
             cursor.execute("SELECT id_usuario FROM usuario WHERE email = %s AND id_usuario != %s", (email, id_usuario))
             if cursor.fetchone():
                 request.session["swal_message"] = {
@@ -1471,47 +1441,66 @@ async def editar_perfil(
                 }
                 return RedirectResponse(url="/perfil", status_code=303)
 
-            # 2. Processar a imagem de perfil
+            # Processar imagem
             imagem_bytes = None
-            if imagemPerfil and imagemPerfil.filename and imagemPerfil.size > 0:
+            if imagemPerfil and imagemPerfil.filename:
+                if imagemPerfil.content_type not in ["image/jpeg", "image/png"]:
+                    request.session["swal_message"] = {
+                        "icon": "error",
+                        "title": "Erro",
+                        "text": "Formato de imagem inválido. Use JPG ou PNG.",
+                        "confirmButtonColor": '#d33'
+                    }
+                    return RedirectResponse(url="/perfil", status_code=303)
                 imagem_bytes = await imagemPerfil.read()
-            else: # Se nenhuma nova imagem foi enviada ou o campo estava vazio, tenta manter a existente
+            else:
                 cursor.execute("SELECT imagemPerfil FROM usuario WHERE id_usuario = %s", (id_usuario,))
-                current_image_data = cursor.fetchone()
-                if current_image_data and current_image_data["imagemPerfil"]:
-                    imagem_bytes = current_image_data["imagemPerfil"]
+                current = cursor.fetchone()
+                imagem_bytes = current["imagemPerfil"] if current else None
 
-            # 3. Converter data de nascimento
+            # Processar data
             data_nascimento_sql = None
             if dataNascimento:
-                data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+                try:
+                    data_nascimento_sql = datetime.strptime(dataNascimento, "%Y-%m-%d").date()
+                except ValueError:
+                    request.session["swal_message"] = {
+                        "icon": "error",
+                        "title": "Data Inválida",
+                        "text": "A data de nascimento está incorreta.",
+                        "confirmButtonColor": '#d33'
+                    }
+                    return RedirectResponse(url="/perfil", status_code=303)
 
-            # 4. Preparar a atualização da senha
-            update_senha_sql = ""
-            senha_param = None
+            # Montar dados para atualização
+            campos = {
+                "nome": nome,
+                "genero": genero,
+                "dataNascimento": data_nascimento_sql,
+                "email": email,
+                "telefone": telefone,
+                "imagemPerfil": imagem_bytes
+            }
             if senha:
-                update_senha_sql = ", senha = MD5(%s)"
-                senha_param = senha
+                campos["senha"] = f"MD5('{senha}')"  # Só até você trocar para bcrypt
 
-            # 5. Construir e executar a query de atualização
-            sql = f"""
-                UPDATE usuario
-                SET nome = %s, genero = %s, dataNascimento = %s, email = %s, telefone = %s, imagemPerfil = %s
-                {update_senha_sql}
-                WHERE id_usuario = %s
-            """
+            # Construir SQL
+            set_clauses = []
+            params = []
+            for campo, valor in campos.items():
+                if campo == "senha":
+                    set_clauses.append("senha = " + valor)  # Já é MD5('...')
+                else:
+                    set_clauses.append(f"{campo} = %s")
+                    params.append(valor)
 
-            params = [nome, genero, data_nascimento_sql, email, telefone, imagem_bytes]
-            if senha_param:
-                params.append(senha_param)
+            sql = f"UPDATE usuario SET {', '.join(set_clauses)} WHERE id_usuario = %s"
             params.append(id_usuario)
 
             cursor.execute(sql, tuple(params))
             db.commit()
 
-            # Atualizar o nome do usuário na sessão, se for o caso
             request.session["nome_usuario"] = nome
-
             request.session["swal_message"] = {
                 "icon": "success",
                 "title": "Perfil Atualizado",
@@ -1521,49 +1510,11 @@ async def editar_perfil(
             return RedirectResponse(url="/perfil", status_code=303)
 
     except Exception as e:
-        print(f"Erro ao editar perfil do usuário {id_usuario}: {e}")
+        print(f"Erro ao editar perfil: {e}")
         request.session["swal_message"] = {
             "icon": "error",
-            "title": "Erro na Edição",
+            "title": "Erro",
             "text": f"Erro ao atualizar perfil: {str(e)}",
-            "confirmButtonColor": '#d33'
-        }
-        return RedirectResponse(url="/perfil", status_code=303)
-
-# Rota para exclusão de conta (implementação básica)
-@app.get("/perfil/excluir")
-async def excluir_perfil(request: Request, db=Depends(get_db)):
-    id_usuario = request.session.get("id_usuario")
-    if not id_usuario:
-        request.session["swal_message"] = {
-            "icon": "error",
-            "title": "Acesso Negado",
-            "text": "Você precisa estar logado para excluir seu perfil.",
-            "confirmButtonColor": '#d33'
-        }
-        return RedirectResponse(url="/login", status_code=303)
-
-    try:
-        with db.cursor() as cursor:
-            # Você pode querer uma confirmação mais robusta aqui (senha, etc.)
-            cursor.execute("DELETE FROM usuario WHERE id_usuario = %s", (id_usuario,))
-            db.commit()
-
-        request.session.clear()
-        request.session["swal_message"] = {
-            "icon": "success",
-            "title": "Conta Excluída",
-            "text": "Sua conta foi excluída com sucesso.",
-            "confirmButtonColor": '#303030'
-        }
-        return RedirectResponse(url="/", status_code=303)
-
-    except Exception as e:
-        print(f"Erro ao excluir perfil do usuário {id_usuario}: {e}")
-        request.session["swal_message"] = {
-            "icon": "error",
-            "title": "Erro ao Excluir",
-            "text": f"Erro ao excluir conta: {str(e)}",
             "confirmButtonColor": '#d33'
         }
         return RedirectResponse(url="/perfil", status_code=303)
