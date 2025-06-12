@@ -42,7 +42,7 @@ templates = Jinja2Templates(directory="templates")
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "Lord@cat20",
+    "password": "PUC@1234",
     "database": "carlink"
 }
 
@@ -951,7 +951,95 @@ async def comprar_carro(
         "swal_message": swal_message
     })
 
+def verificar_sessao(request: Request):
+    usuario = request.session.get("usuario")
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Usuário não autenticado")
+    return usuario
 
+@app.get("/detalhes/{id_carro}", response_class=HTMLResponse)
+async def detalhes_carro(request: Request, id_carro: int, db=Depends(get_db)):
+    nome_usuario = request.session.get("nome_usuario", None)
+
+    if not nome_usuario:
+        return RedirectResponse(url="/login", status_code=302)
+
+    carro = None
+    try:
+        with db.cursor(pymysql.cursors.DictCursor) as cursor:
+            sql = """
+                SELECT c.*, m.nome AS modelo_nome, ma.nome AS marca_nome
+                FROM carro c
+                JOIN modelo m ON c.fk_id_modelo = m.id_modelo
+                JOIN marca ma ON m.fk_id_marca = ma.id_marca
+                WHERE c.id_carro = %s
+            """
+            cursor.execute(sql, (id_carro,))
+            carro = cursor.fetchone()
+
+            if not carro:
+                return RedirectResponse(url="/comprar", status_code=302)
+
+            if carro["imagem"]:
+                carro["Imagem_base64"] = base64.b64encode(carro["imagem"]).decode("utf-8")
+            else:
+                carro["Imagem_base64"] = None
+
+    except Exception as e:
+        print(f"Erro ao buscar detalhes do carro: {e}")
+        request.session["swal_message"] = {
+            "icon": "error",
+            "title": "Erro",
+            "text": "Não foi possível carregar os detalhes do carro.",
+            "confirmButtonColor": '#d33'
+        }
+        return RedirectResponse(url="/comprar", status_code=302)
+
+    swal_message = request.session.pop("swal_message", None)
+
+    return templates.TemplateResponse("detalhes_carro.html", {
+        "request": request,
+        "carro": carro,
+        "nome_usuario": nome_usuario,
+        "swal_message": swal_message
+    })
+
+
+# --- ROTA POST PARA COMPRAR O CARRO ---
+@app.post("/detalhes/{id_carro}")
+async def comprar_carro(request: Request, id_carro: int, acao: str = Form(...), db=Depends(get_db)):
+    nome_usuario = request.session.get("nome_usuario", None)
+    id_usuario = request.session.get("id_usuario", None)
+
+    if not nome_usuario or not id_usuario:
+        return RedirectResponse(url="/login", status_code=302)
+
+    if acao == "comprar":
+        try:
+            with db.cursor() as cursor:
+                sql = """
+                    INSERT INTO venda (fk_id_carro, fk_id_usuario, horario, total)
+                    VALUES (%s, %s, %s, (SELECT preco FROM carro WHERE id_carro = %s))
+                """
+                cursor.execute(sql, (id_carro, id_usuario, datetime.now(), id_carro))
+                db.commit()
+
+            request.session["swal_message"] = {
+                "icon": "success",
+                "title": "Compra Realizada!",
+                "text": "O carro foi comprado com sucesso.",
+                "confirmButtonColor": '#303030'
+            }
+
+        except Exception as e:
+            request.session["swal_message"] = {
+                "icon": "error",
+                "title": "Erro ao Comprar",
+                "text": f"Erro ao realizar a compra: {str(e)}",
+                "confirmButtonColor": '#d33'
+            }
+
+    return RedirectResponse(url=f"/detalhes/{id_carro}", status_code=303)
 def fetch_all_cargos(db: pymysql.Connection) -> List[Dict[str, Any]]:
     with db.cursor() as cursor:
         cursor.execute("SELECT id_cargo, nome FROM cargo ORDER BY nome")

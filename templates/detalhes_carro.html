@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Detalhes do Carro - Carlink</title>
+
+  <link rel="icon" href="{{ url_for('static', path='imagens/favicon.png') }}" />
+  <link rel="stylesheet" href="/static/css/bootstrap.css" />
+  <link rel="stylesheet" href="/static/css/custom.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+  <div class="container">
+    {% include 'geral/menu.html' %}
+  </div>
+
+  <main class="container mt-5">
+    <div class="row">
+      <div class="col-md-6">
+        {% if carro.Imagem_base64 %}
+          <img src="data:image/jpeg;base64,{{ carro.Imagem_base64 }}" class="img-fluid rounded shadow" alt="Imagem do carro">
+        {% else %}
+          <img src="{{ url_for('static', path='imagens/no-image.png') }}" class="img-fluid rounded shadow" alt="Imagem não disponível">
+        {% endif %}
+      </div>
+
+      <div class="col-md-6">
+        <h2>{{ carro.marca_nome }} {{ carro.modelo_nome }}</h2>
+        <ul class="list-unstyled fs-5">
+          <li><strong>Ano:</strong> {{ carro.ano }}</li>
+          <li><strong>Placa:</strong> {{ carro.placa }}</li>
+          <li><strong>Cor:</strong> {{ carro.cor }}</li>
+          <li><strong>Motor:</strong> {{ carro.motor }}</li>
+          <li><strong>Tipo de Motor:</strong> {{ carro.tipo_motor }}</li>
+          <li><strong>Potência:</strong> {{ carro.potencia }} HP</li>
+          <li><strong>Preço:</strong> R$ {{ '{:,.2f}'.format(carro.preco).replace(',', 'X').replace('.', ',').replace('X', '.') }}</li>
+        </ul>
+        <p class="lead mt-4"><strong>Descrição:</strong><br>{{ carro.descricao or "Sem descrição disponível." }}</p>
+
+        <!-- Formulário de compra -->
+        <form method="post" class="d-grid mt-4">
+          <input type="hidden" name="acao" value="comprar" />
+          <button type="submit" class="btn btn-success btn-lg">
+            <i class="fa fa-check-circle me-2"></i>Comprar este carro
+          </button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  {% include 'geral/rodape.html' %}
+
+  {% if swal_message %}
+    <script>
+      Swal.fire({
+        icon: '{{ swal_message.icon }}',
+        title: '{{ swal_message.title }}',
+        html: '{{ swal_message.text | safe }}',
+        confirmButtonColor: '#1a1a1a'
+      });
+    </script>
+  {% endif %}
+</body>
+</html>
