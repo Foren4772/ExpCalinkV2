@@ -845,7 +845,8 @@ async def comprar_carro(
     nome_usuario = request.session.get("nome_usuario", None)
 
     query_params = []
-    sql_where = []
+    sql_where = ["carro.disponivel = 1"]  # <-- Adicionado filtro de disponibilidade
+
 
     # Preço
     preco_max_float = None
@@ -980,6 +981,7 @@ async def detalhes_carro(request: Request, id_carro: int, db=Depends(get_db)):
             if not carro:
                 return RedirectResponse(url="/comprar", status_code=302)
 
+            # Trata imagem
             if carro["imagem"]:
                 carro["Imagem_base64"] = base64.b64encode(carro["imagem"]).decode("utf-8")
             else:
@@ -995,6 +997,7 @@ async def detalhes_carro(request: Request, id_carro: int, db=Depends(get_db)):
         }
         return RedirectResponse(url="/comprar", status_code=302)
 
+    # Pega e remove o swal_message para exibir uma única vez
     swal_message = request.session.pop("swal_message", None)
 
     return templates.TemplateResponse("detalhes_carro.html", {
@@ -1017,13 +1020,18 @@ async def comprar_carro(request: Request, id_carro: int, acao: str = Form(...), 
     if acao == "comprar":
         try:
             with db.cursor() as cursor:
+                # Registrar a venda
                 sql = """
                     INSERT INTO venda (fk_id_carro, fk_id_usuario, horario, total)
                     VALUES (%s, %s, %s, (SELECT preco FROM carro WHERE id_carro = %s))
                 """
                 cursor.execute(sql, (id_carro, id_usuario, datetime.now(), id_carro))
+
+                # Atualizar disponibilidade do carro
+                cursor.execute("UPDATE carro SET disponivel = 0 WHERE id_carro = %s", (id_carro,))
                 db.commit()
 
+            # Mensagem de sucesso para exibir com SweetAlert2
             request.session["swal_message"] = {
                 "icon": "success",
                 "title": "Compra Realizada!",
@@ -1040,10 +1048,6 @@ async def comprar_carro(request: Request, id_carro: int, acao: str = Form(...), 
             }
 
     return RedirectResponse(url=f"/detalhes/{id_carro}", status_code=303)
-def fetch_all_cargos(db: pymysql.Connection) -> List[Dict[str, Any]]:
-    with db.cursor() as cursor:
-        cursor.execute("SELECT id_cargo, nome FROM cargo ORDER BY nome")
-        return cursor.fetchall()
 
 @app.get("/usuariosListar", name="usuariosListar", response_class=HTMLResponse)
 async def listar_usuarios(request: Request, db: pymysql.Connection = Depends(get_db)):
