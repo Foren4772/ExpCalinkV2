@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import date, datetime
 from typing import Optional, List, Dict, Any
+from urllib.parse import urlencode
 
 
 
@@ -1507,27 +1508,34 @@ async def excluir_usuario_admin(
             
     return RedirectResponse(url="/funcionariosListar", status_code=303)
 
-@app.get("/carrosListar", name="carrosListar", response_class=HTMLResponse)
+@app.get("/carrosListar", response_class=HTMLResponse)
 async def listar_carros(request: Request, db=Depends(get_db)):
     if not request.session.get("user_logged_in") or request.session.get("cargo") != 1:
         return RedirectResponse(url="/", status_code=303)
 
-    with db.cursor() as cursor:
-        sql = """
-            SELECT C.id_carro, C.ano, C.placa, C.cor, C.renavam, C.chassi,
-                   C.motor, C.potencia, C.preco, C.imagem, C.descricao,
-                   M.nome AS nome_modelo, U.nome AS nome_usuario
-            FROM carro AS C
-            LEFT JOIN modelo AS M ON C.fk_id_modelo = M.id_modelo
-            LEFT JOIN usuario AS U ON C.fk_id_usuario = U.id_usuario
-            ORDER BY C.id_carro DESC
-        """
-        cursor.execute(sql)
-        carros = cursor.fetchall()
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("""
+                SELECT C.id_carro, C.ano, C.placa, C.cor, C.renavam, C.chassi,
+                       C.motor, C.potencia, C.preco, C.imagem, C.descricao,
+                       M.nome AS nome_modelo, U.nome AS nome_usuario
+                FROM carro AS C
+                LEFT JOIN modelo AS M ON C.fk_id_modelo = M.id_modelo
+                LEFT JOIN usuario AS U ON C.fk_id_usuario = U.id_usuario
+                ORDER BY C.id_carro DESC
+            """)
+            carros = cursor.fetchall()
 
-    for carro in carros:
-        carro["ano"] = carro["ano"].strftime("%Y") if carro["ano"] else "N/A"
-        carro["preco"] = f"R$ {carro['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            for carro in carros:
+                carro["ano"] = carro["ano"].strftime("%Y") if carro["ano"] else "N/A"
+                carro["preco"] = (
+                    f"R$ {carro['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                    if carro["preco"] else "N/A"
+                )
+
+    except Exception as e:
+        print(f"Erro ao listar carros: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao buscar carros.")
 
     return templates.TemplateResponse("carrosListar.html", {
         "request": request,
@@ -1537,7 +1545,109 @@ async def listar_carros(request: Request, db=Depends(get_db)):
     })
 
 
+@app.get("/imagens/{id_carro}")
+async def imagem_carro(id_carro: int, db=Depends(get_db)):
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("SELECT imagem FROM carro WHERE id_carro = %s", (id_carro,))
+            resultado = cursor.fetchone()
+            if resultado and resultado["imagem"]:
+                return Response(content=resultado["imagem"], media_type="image/jpeg")
+    except Exception as e:
+        print(f"Erro ao buscar imagem: {e}")
+    return Response(status_code=404)
 
+@app.get("/carros/editar/{id_carro}", response_class=HTMLResponse)
+async def exibir_form_edicao(request: Request, id_carro: int, db=Depends(get_db)):
+    if not request.session.get("user_logged_in") or request.session.get("cargo") != 1:
+        return RedirectResponse(url="/", status_code=303)
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT * FROM carro WHERE id_carro = %s", (id_carro,))
+        carro = cursor.fetchone()
+
+        if not carro:
+            return RedirectResponse(url="/carrosListar", status_code=303)
+
+        cursor.execute("SELECT id_modelo, nome FROM modelo")
+        modelos = cursor.fetchall()
+
+    return templates.TemplateResponse("carrosEditar.html", {
+        "request": request,
+        "carro": carro,
+        "modelos": modelos,
+        "nome_usuario": request.session.get("nome_usuario", "Visitante"),
+    })
+
+@app.post("/carros/editar/{id_carro}")
+async def salvar_edicao_carro(
+    request: Request,
+    id_carro: int,
+    fk_id_modelo: int = Form(...),
+    ano: str = Form(...),
+    placa: str = Form(...),
+    cor: str = Form(...),
+    renavam: str = Form(...),
+    chassi: str = Form(...),
+    motor: str = Form(...),
+    potencia: str = Form(...),
+    preco: float = Form(...),
+    descricao: str = Form(...),
+    imagem: UploadFile = File(None),
+    db=Depends(get_db)
+):
+    if not request.session.get("user_logged_in") or request.session.get("cargo") != 1:
+        return RedirectResponse(url="/", status_code=303)
+
+    try:
+        with db.cursor() as cursor:
+            if imagem and imagem.filename:
+                imagem_bytes = await imagem.read()
+                cursor.execute("""
+                    UPDATE carro SET fk_id_modelo=%s, ano=%s, placa=%s, cor=%s,
+                    renavam=%s, chassi=%s, motor=%s, potencia=%s, preco=%s,
+                    descricao=%s, imagem=%s WHERE id_carro=%s
+                """, (
+                    fk_id_modelo, ano, placa, cor, renavam, chassi,
+                    motor, potencia, preco, descricao, imagem_bytes, id_carro
+                ))
+            else:
+                cursor.execute("""
+                    UPDATE carro SET fk_id_modelo=%s, ano=%s, placa=%s, cor=%s,
+                    renavam=%s, chassi=%s, motor=%s, potencia=%s, preco=%s,
+                    descricao=%s WHERE id_carro=%s
+                """, (
+                    fk_id_modelo, ano, placa, cor, renavam, chassi,
+                    motor, potencia, preco, descricao, id_carro
+                ))
+            db.commit()
+    except Exception as e:
+        print(f"Erro ao editar carro: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao editar carro")
+
+    return RedirectResponse(url="/carrosListar", status_code=303)
+
+@app.get("/carros/excluir/{id_carro}")
+async def excluir_carro(id_carro: int, request: Request, db=Depends(get_db)):
+    if not request.session.get("user_logged_in") or request.session.get("cargo") != 1:
+        return RedirectResponse(url="/", status_code=303)
+
+    try:
+        with db.cursor() as cursor:
+            cursor.execute("DELETE FROM carro WHERE id_carro = %s", (id_carro,))
+            db.commit()
+        return RedirectResponse(url="/carrosListar", status_code=303)
+
+    except pymysql.err.IntegrityError as e:
+        print(f"Erro de integridade: {e}")
+        # Redireciona com mensagem de erro usando query string
+        params = urlencode({"erro": "Este carro está vinculado a uma venda e não pode ser excluído."})
+        return RedirectResponse(url=f"/carrosListar?{params}", status_code=303)
+
+    except Exception as e:
+        print(f"Erro ao excluir carro: {e}")
+        return RedirectResponse(url="/carrosListar", status_code=303)
+    
 
 @app.get("/perfil", response_class=HTMLResponse) #teste jesus
 async def perfil_usuario(request: Request, db=Depends(get_db)):

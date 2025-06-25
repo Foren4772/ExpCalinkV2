@@ -13,13 +13,16 @@
 
         <div class="mt-4 mb-3">
             <h2>Carros Cadastrados</h2>
+            {% if request.query_params.erro %}
+            <div class="alert alert-danger mt-2">{{ request.query_params.erro }}</div>
+            {% endif %}
             <p>Atualizado em: {{ hoje }}</p>
         </div>
 
         {% if carros %}
         <div class="table-responsive">
             <table class="table table-bordered table-hover align-middle bg-white">
-                <thead class="table-dark">
+                <th class="text-center">Ações</th>
                     <tr>
                         <th>ID</th>
                         <th>Imagem</th>
@@ -34,6 +37,7 @@
                         <th>Preço</th>
                         <th>Descrição</th>
                         <th>Usuário</th>
+                        <th>Ações</th> <!-- NOVA COLUNA -->
                     </tr>
                 </thead>
                 <tbody>
@@ -42,7 +46,7 @@
                         <td>{{ carro.id_carro }}</td>
                         <td>
                             {% if carro.imagem %}
-                            <img src="/imagens/{{ carro.id }}" alt="Imagem do carro" width="100">
+                            <img src="/imagens/{{ carro.id_carro }}" alt="Imagem do carro" width="100">
                             {% else %}
                                 <span class="text-muted">Sem imagem</span>
                             {% endif %}
@@ -58,6 +62,15 @@
                         <td>{{ carro.preco }}</td>
                         <td>{{ carro.descricao }}</td>
                         <td>{{ carro.nome_usuario }}</td>
+                        <td class="text-center">
+                            <a href="/carros/editar/{{ carro.id_carro }}" class="btn btn-outline-dark btn-sm me-1" title="Editar">
+                                <i class="fas fa-pen-to-square"></i>
+                            </a>
+                            <a href="/carros/excluir/{{ carro.id_carro }}" class="btn btn-outline-danger btn-sm" title="Excluir"
+                            onclick="return confirm('Tem certeza que deseja excluir este carro?');">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
